@@ -1,18 +1,36 @@
 """
-The overall goal is to create a state-of-the-art NER model using modern transformer architectures. We're leveraging the power of pre-trained language models (BERT in this case) and fine-tuning them on a specific task (NER) using a high-quality dataset (OntoNotes). This approach typically yields better results than traditional machine learning methods or even some earlier deep learning approaches.
+Train a state-of-the-art NER model using BERT and the OntoNotes dataset.
 
-The code demonstrates the full pipeline from data preparation to model training and inference, making it a comprehensive example of how to tackle NER tasks using current best practices in NLP.
+This script demonstrates the full pipeline from data preparation to model training
+and inference for Named Entity Recognition (NER) using current best practices in NLP.
 """
 
+import numpy as np
 from datasets import load_dataset
+from transformers import (
+    AutoTokenizer,
+    AutoModelForTokenClassification,
+    TrainingArguments,
+    Trainer,
+    pipeline,
+)
+from seqeval.metrics import classification_report
 
-dataset = load_dataset("conll2012_ontonotes", "english_v4")
+# Constants and configurations
+MODEL_NAME = "bert-base-cased"
+DATASET_NAME = "conll2012_ontonotes"
+DATASET_CONFIG = "english_v4"
+OUTPUT_DIR = "./results"
+FINAL_MODEL_DIR = "./ner_model"
 
-from transformers import AutoTokenizer
+# Data loading and preprocessing
+def load_and_preprocess_data():
+    dataset = load_dataset(DATASET_NAME, DATASET_CONFIG)
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    tokenized_datasets = dataset.map(tokenize_and_align_labels, batched=True, fn_kwargs={"tokenizer": tokenizer})
+    return tokenized_datasets, tokenizer
 
-tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
-
-def tokenize_and_align_labels(examples):
+def tokenize_and_align_labels(examples, tokenizer):
     tokenized_inputs = tokenizer(examples["tokens"], truncation=True, is_split_into_words=True)
     labels = []
     for i, label in enumerate(examples["ner_tags"]):
@@ -33,31 +51,29 @@ def tokenize_and_align_labels(examples):
 
 tokenized_datasets = dataset.map(tokenize_and_align_labels, batched=True)
 
-from transformers import AutoModelForTokenClassification, TrainingArguments, Trainer
+# Model setup
+def setup_model(num_labels, id2label, label2id):
+    model = AutoModelForTokenClassification.from_pretrained(
+        MODEL_NAME,
+        num_labels=num_labels,
+        id2label=id2label,
+        label2id=label2id
+    )
+    return model
 
-id2label = {0: "O", 1: "B-PERSON", 2: "I-PERSON", 3: "B-NORP", 4: "I-NORP", ...}  # Define all labels
-label2id = {v: k for k, v in id2label.items()}
+# Training setup
+def setup_training_args():
+    return TrainingArguments(
+        output_dir=OUTPUT_DIR,
+        evaluation_strategy="epoch",
+        learning_rate=2e-5,
+        per_device_train_batch_size=16,
+        per_device_eval_batch_size=16,
+        num_train_epochs=3,
+        weight_decay=0.01,
+    )
 
-model = AutoModelForTokenClassification.from_pretrained(
-    "bert-base-cased",
-    num_labels=len(id2label),
-    id2label=id2label,
-    label2id=label2id
-)
-
-training_args = TrainingArguments(
-    output_dir="./results",
-    evaluation_strategy="epoch",
-    learning_rate=2e-5,
-    per_device_train_batch_size=16,
-    per_device_eval_batch_size=16,
-    num_train_epochs=3,
-    weight_decay=0.01,
-)
-
-from seqeval.metrics import classification_report
-import numpy as np
-
+# Evaluation and metrics
 def compute_metrics(p):
     predictions, labels = p
     predictions = np.argmax(predictions, axis=2)
@@ -80,24 +96,40 @@ def compute_metrics(p):
     }
 
 
-trainer = Trainer(
-    model=model,
-    args=training_args,
-    train_dataset=tokenized_datasets["train"],
-    eval_dataset=tokenized_datasets["validation"],
-    tokenizer=tokenizer,
-    compute_metrics=compute_metrics
-)
+def main():
+    # Load and preprocess data
+    tokenized_datasets, tokenizer = load_and_preprocess_data()
 
-trainer.train()
+    # Setup model
+    id2label = {0: "O", 1: "B-PERSON", 2: "I-PERSON", 3: "B-NORP", 4: "I-NORP", ...}  # Define all labels
+    label2id = {v: k for k, v in id2label.items()}
+    model = setup_model(len(id2label), id2label, label2id)
 
-trainer.evaluate()
-trainer.save_model("./ner_model")
+    # Setup training arguments
+    training_args = setup_training_args()
 
+    # Initialize trainer
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=tokenized_datasets["train"],
+        eval_dataset=tokenized_datasets["validation"],
+        tokenizer=tokenizer,
+        compute_metrics=compute_metrics
+    )
 
-from transformers import pipeline
+    # Train and evaluate
+    trainer.train()
+    trainer.evaluate()
 
-nlp = pipeline("ner", model="./ner_model", tokenizer=tokenizer)
-text = "John Smith works at Microsoft in Seattle."
-results = nlp(text)
-print(results)
+    # Save the model
+    trainer.save_model(FINAL_MODEL_DIR)
+
+    # Test the model
+    nlp = pipeline("ner", model=FINAL_MODEL_DIR, tokenizer=tokenizer)
+    text = "John Smith works at Microsoft in Seattle."
+    results = nlp(text)
+    print(results)
+
+if __name__ == "__main__":
+    main()
