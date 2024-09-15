@@ -101,7 +101,17 @@ def main():
     tokenized_datasets, tokenizer = load_and_preprocess_data()
 
     # Setup model
-    id2label = {0: "O", 1: "B-PERSON", 2: "I-PERSON", 3: "B-NORP", 4: "I-NORP", ...}  # Define all labels
+    id2label = {
+        0: "O", 1: "B-PERSON", 2: "I-PERSON", 3: "B-NORP", 4: "I-NORP",
+        5: "B-ORG", 6: "I-ORG", 7: "B-DATE", 8: "I-DATE", 9: "B-CARDINAL",
+        10: "I-CARDINAL", 11: "B-GPE", 12: "I-GPE", 13: "B-EVENT", 14: "I-EVENT",
+        15: "B-FAC", 16: "I-FAC", 17: "B-LANGUAGE", 18: "I-LANGUAGE",
+        19: "B-LAW", 20: "I-LAW", 21: "B-LOC", 22: "I-LOC",
+        23: "B-MONEY", 24: "I-MONEY", 25: "B-ORDINAL", 26: "I-ORDINAL",
+        27: "B-PERCENT", 28: "I-PERCENT", 29: "B-PRODUCT", 30: "I-PRODUCT",
+        31: "B-QUANTITY", 32: "I-QUANTITY", 33: "B-TIME", 34: "I-TIME",
+        35: "B-WORK_OF_ART", 36: "I-WORK_OF_ART"
+    }
     label2id = {v: k for k, v in id2label.items()}
     model = setup_model(len(id2label), id2label, label2id)
 
