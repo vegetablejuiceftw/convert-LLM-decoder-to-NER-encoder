@@ -27,7 +27,11 @@ FINAL_MODEL_DIR = "./ner_model"
 def load_and_preprocess_data():
     dataset = load_dataset(DATASET_NAME, DATASET_CONFIG)
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    tokenized_datasets = dataset.map(tokenize_and_align_labels, batched=True, fn_kwargs={"tokenizer": tokenizer})
+    tokenized_datasets = dataset.map(
+        tokenize_and_align_labels,
+        batched=True,
+        fn_kwargs={"tokenizer": tokenizer}
+    )
     return tokenized_datasets, tokenizer
 
 def tokenize_and_align_labels(examples, tokenizer):
@@ -48,8 +52,6 @@ def tokenize_and_align_labels(examples, tokenizer):
         labels.append(label_ids)
     tokenized_inputs["labels"] = labels
     return tokenized_inputs
-
-tokenized_datasets = dataset.map(tokenize_and_align_labels, batched=True)
 
 # Model setup
 def setup_model(num_labels, id2label, label2id):
@@ -74,7 +76,7 @@ def setup_training_args():
     )
 
 # Evaluation and metrics
-def compute_metrics(p):
+def compute_metrics(p, id2label):
     predictions, labels = p
     predictions = np.argmax(predictions, axis=2)
 
@@ -125,7 +127,7 @@ def main():
         train_dataset=tokenized_datasets["train"],
         eval_dataset=tokenized_datasets["validation"],
         tokenizer=tokenizer,
-        compute_metrics=compute_metrics
+        compute_metrics=lambda p: compute_metrics(p, id2label)
     )
 
     # Train and evaluate
