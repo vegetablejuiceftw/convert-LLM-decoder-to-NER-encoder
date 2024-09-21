@@ -13,6 +13,7 @@ torch = "^2.4.1"
 seqeval = "^1.2.2"
 accelerate = "^0.34.2"
 optimum = "^1.22.0"
+flash-attn = "^2.6.3"
 
 
 [build-system]

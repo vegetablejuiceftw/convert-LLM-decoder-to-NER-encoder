@@ -21,16 +21,16 @@ import torch.utils.checkpoint
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
-from ...activations import ACT2FN
-from ...modeling_attn_mask_utils import _prepare_4d_causal_attention_mask
-from ...modeling_outputs import (
+from transformers.activations import ACT2FN
+from transformers.modeling_attn_mask_utils import _prepare_4d_causal_attention_mask, _prepare_4d_attention_mask
+from transformers.modeling_outputs import (
     BaseModelOutputWithPast,
     CausalLMOutputWithPast,
     QuestionAnsweringModelOutput,
     SequenceClassifierOutputWithPast,
 )
-from ...modeling_utils import PreTrainedModel
-from ...utils import (
+from transformers.modeling_utils import PreTrainedModel
+from transformers.utils import (
     add_code_sample_docstrings,
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
@@ -39,11 +39,11 @@ from ...utils import (
     logging,
     replace_return_docstrings,
 )
-from .configuration_opt import OPTConfig
+from transformers.models.opt.configuration_opt import OPTConfig
 
 
 if is_flash_attn_2_available():
-    from ...modeling_flash_attention_utils import _flash_attention_forward
+    from transformers.modeling_flash_attention_utils import _flash_attention_forward
 
 
 logger = logging.get_logger(__name__)
@@ -719,8 +719,8 @@ class OPTDecoder(OPTPreTrainedModel):
                     f"The provided attention mask has length {attention_mask.shape[1]}, but its length should be "
                     f"{mask_seq_length} (sum of the lengths of current and past inputs)"
                 )
-            causal_attention_mask = _prepare_4d_causal_attention_mask(
-                attention_mask, input_shape, inputs_embeds, past_key_values_length
+            causal_attention_mask = _prepare_4d_attention_mask(
+                attention_mask,  dtype=inputs_embeds.dtype, tgt_len=seq_length
             )
 
         pos_embeds = self.embed_positions(attention_mask, past_key_values_length)
