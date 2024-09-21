@@ -11,6 +11,8 @@ transformers = "^4.44.2"
 datasets = "^3.0.0"
 torch = "^2.4.1"
 seqeval = "^1.2.2"
+accelerate = "^0.34.2"
+optimum = "^1.22.0"
 
 
 [build-system]
