@@ -88,8 +88,8 @@ training_args = TrainingArguments(
     logging_strategy='no',
     save_strategy="no",
 
-    learning_rate=5e-5,
-    num_train_epochs=2,
+    learning_rate=3e-5,
+    num_train_epochs=16,
     weight_decay=0.01,
     max_grad_norm=0.5,
 
@@ -133,3 +133,8 @@ trainer.train()
 # # Test the model
 test_results = trainer.predict(tokenized_datasets["test"])
 print("test", test_results.metrics)
+
+# {'eval_loss': 0.071, 'eval_model_preparation_time': 0.003 'eval_precision': 0.841, 'eval_recall': 0.885, 'eval_f1': 0.863, 'eval_runtime': 6.39, 'eval_samples_per_second': 508.604, 'eval_steps_per_second': 4.069, 'epoch': 2.0}
+# {'eval_loss': 0.093, 'eval_model_preparation_time': 0.002, 'eval_precision': 0.891, 'eval_recall': 0.922, 'eval_f1': 0.906, 'eval_runtime': 6.5161, 'eval_samples_per_second': 498.763, 'eval_steps_per_second': 3.99, 'epoch': 16.0
+# test {'test_loss': 0.113, 'test_model_preparation_time': 0.003 'test_precision': 0.806, 'test_recall': 0.850, 'test_f1': 0.828, 'test_runtime': 6.665, 'test_samples_per_second': 518.079, 'test_steps_per_second': 4.051}
+# test {'test_loss': 0.178, 'test_model_preparation_time': 0.002, 'test_precision': 0.832, 'test_recall': 0.872, 'test_f1': 0.852, 'test_runtime': 6.8165, 'test_samples_per_second': 506.568, 'test_steps_per_second': 3.961}

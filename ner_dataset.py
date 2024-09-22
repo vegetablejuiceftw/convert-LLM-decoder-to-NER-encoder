@@ -17,7 +17,7 @@ def load_ner_dataset(model_name: str, max_length=40):
 
     label_list = NER_DS["train"].features[f"ner_tags"].feature.names
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name, clean_up_tokenization_spaces=True, max_length=max_length, add_prefix_space=True)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, clean_up_tokenization_spaces=True, max_length=max_length, add_prefix_space=True, padding_side='right')
 
     # Tokenize and align labels
     def tokenize_and_align_labels(examples):

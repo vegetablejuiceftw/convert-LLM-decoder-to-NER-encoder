@@ -91,3 +91,5 @@ test_results = trainer.predict(tokenized_datasets["test"])
 print("test", test_results.metrics)
 
 # test {'test_loss': 0.109, 'test_precision': 0.809, 'test_recall': 0.854, 'test_f1': 0.831, 'test_runtime': 1.6295, 'test_samples_per_second': 1170.326, 'test_steps_per_second': 9.206}
+# {'eval_loss': 0.070, 'eval_model_preparation_time': 0.324, 'eval_precision': 0.898, 'eval_recall': 0.893, 'eval_f1': 0.896, 'eval_runtime': 2.2226, 'eval_samples_per_second': 1462.223, 'eval_steps_per_second': 11.698, 'epoch': 9.0}
+# test {'test_loss': 0.118, 'test_model_preparation_time': 0.324, 'test_precision': 0.859, 'test_recall': 0.869, 'test_f1': 0.864, 'test_runtime': 2.3121, 'test_samples_per_second': 1493.423, 'test_steps_per_second': 11.678}
