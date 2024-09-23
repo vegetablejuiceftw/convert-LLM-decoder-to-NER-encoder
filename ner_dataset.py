@@ -15,7 +15,7 @@ def load_ner_dataset(model_name: str, max_length=40):
     NER_DS = load_dataset("conll2003")
     NER_DS['dev'] = NER_DS.pop('validation')
 
-    label_list = NER_DS["train"].features[f"ner_tags"].feature.names
+    label_list = NER_DS["train"].features["ner_tags"].feature.names
 
     tokenizer = AutoTokenizer.from_pretrained(model_name, clean_up_tokenization_spaces=True, max_length=max_length, add_prefix_space=True, padding_side='right')
 
