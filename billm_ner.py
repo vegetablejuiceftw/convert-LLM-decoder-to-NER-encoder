@@ -4,17 +4,25 @@ import argparse
 
 import numpy as np
 import evaluate
+import torch
 from datasets import load_dataset, load_from_disk
 from transformers import AutoTokenizer
 from transformers import DataCollatorForTokenClassification
 from transformers import TrainingArguments, Trainer
 from peft import get_peft_model, LoraConfig, TaskType
-from billm import LlamaForTokenClassification, MistralForTokenClassification
+from billm import LlamaForTokenClassification, MistralForTokenClassification, OpenELMForTokenClassification, \
+    Qwen2ForTokenClassification
 
 """
 dotenv run -- python billm_ner.py \
 --model_name_or_path mistralai/Mistral-7B-v0.3 \
 --dataset_name_or_path conll2003
+
+"""
+"""
+dotenv run -- python billm_ner.py \
+--model_name_or_path Qwen/Qwen2-7B \
+--dataset_name_or_path EstNER
 
 """
 parser = argparse.ArgumentParser()
@@ -26,7 +34,7 @@ parser.add_argument('--epochs', type=int, default=3, help='Specify number of epo
 parser.add_argument('--batch_size', type=int, default=16, help='Specify number of batch size, default 8')
 parser.add_argument('--learning_rate', type=float, default=3e-5, help='Specify learning rate, default 1e-4')
 parser.add_argument('--weight_decay', type=float, default=0.01, help='Specify weight decay, default 0.01')
-parser.add_argument('--max_length', type=int, default=64, help='Specify max length, default 64')
+parser.add_argument('--max_length', type=int, default=48, help='Specify max length, default 64')
 parser.add_argument('--lora_r', type=int, default=32, help='Specify lora r, default 12')
 parser.add_argument('--lora_alpha', type=int, default=32, help='Specify lora alpha, default 32')
 parser.add_argument('--lora_dropout', type=float, default=0.1, help='Specify lora alpha, default 0.1')
@@ -66,11 +74,14 @@ if 'mistral' in args.model_name_or_path.lower():
     MODEL = MistralForTokenClassification
 elif 'llama' in args.model_name_or_path.lower():
     MODEL = LlamaForTokenClassification
+elif 'qwen' in args.model_name_or_path.lower():
+    MODEL = Qwen2ForTokenClassification
 else:
+    print(args.model_name_or_path)
     raise NotImplementedError
 model = MODEL.from_pretrained(
-    args.model_name_or_path, num_labels=len(label2id), id2label=id2label, label2id=label2id
-).bfloat16()
+    args.model_name_or_path, num_labels=len(label2id), id2label=id2label, label2id=label2id, torch_dtype=torch.bfloat16, device_map="auto",
+)
 peft_config = LoraConfig(task_type=TaskType.TOKEN_CLS,
                          inference_mode=False,
                          r=args.lora_r, lora_alpha=args.lora_alpha, lora_dropout=args.lora_dropout)
