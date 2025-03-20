@@ -1,4 +1,10 @@
-from datasets import load_dataset, Sequence, ClassLabel
+"""
+Script to prepare and save the Estonian NER dataset.
+
+This script loads the EstNER dataset, processes the NER tags,
+and saves it in a format ready for use in training models.
+"""
+from datasets import ClassLabel, Sequence, load_dataset
 
 # Load the dataset
 NER_DS = load_dataset("tartuNLP/EstNER", "estner-reannotated", columns=["tokens", "ner_tags"])
@@ -13,8 +19,8 @@ tag2id = {tag: i for i, tag in enumerate(sorted(unique_tags))}
 id2tag = {i: tag for tag, i in tag2id.items()}
 
 
-# Define conversion function
 def convert_tags_to_ids(example):
+    """Convert tag strings to their corresponding IDs."""
     return {"ner_tags": [tag2id[tag] for tag in example["ner_tags"]]}
 
 
@@ -32,4 +38,5 @@ print(NER_DS["train"].features["ner_tags"])
 print(NER_DS["train"][0]["ner_tags"])
 print(NER_DS)
 
-NER_DS.save_to_disk(".dataset/EstNER")
+# Save the dataset to disk
+NER_DS.save_to_disk("../dataset/EstNER")
