@@ -25,11 +25,10 @@ class NERDataset:
     """Class to hold all NER dataset components"""
     data_collator: DataCollatorForTokenClassification
     tokenized_datasets: Any
-    tokenizer: Any
+    tokenizer: Any  #
     id2label: Dict[int, str]
     label2id: Dict[str, int]
-    compute_metrics: Callable
-    
+
     @property
     def num_labels(self) -> int:
         """Return the number of labels"""
@@ -63,11 +62,15 @@ class NERDataset:
             "accuracy": results["accuracy"] if "accuracy" in results else results["micro avg"]["precision"],
         }
 
-def prepare_ner_dataset(model_name: str, max_length=48) -> NERDataset:
-    NER_DS = load_dataset(".dataset/EstNER")
-    # NER_DS = load_dataset("wnut_17")
-    # NER_DS = load_dataset("conll2003")
 
+class DATASETS:
+    EST_NER = ".dataset/EstNER"
+    WNUT = "wnut_17"
+    CONLL = "conll2003"
+
+
+def prepare_ner_dataset(dataset: str, model_name: str, max_length=48) -> NERDataset:
+    NER_DS = load_dataset(dataset)
     feature = NER_DS["train"].features["ner_tags"].feature
     label2id = {feature.int2str(i): i for i in range(feature.num_classes)}
     id2label = {v: k for k, v in label2id.items()}

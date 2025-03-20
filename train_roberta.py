@@ -4,19 +4,18 @@ torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
 from transformers import AutoModelForTokenClassification, TrainingArguments, Trainer, AutoConfig
-from datahelper.ner_dataset import prepare_ner_dataset
+from datahelper.ner_dataset import prepare_ner_dataset, DATASETS
 from datahelper.utils import RoundMetricsCallback
 
 # Load pretrained model and tokenizer
-# model_name = "FacebookAI/xlm-roberta-small"  # You can change this to any other suitable pretrained model
+model_name, size = "FacebookAI/xlm-roberta-base", 1  # You can change this to any other suitable pretrained model
 model_name = "FacebookAI/xlm-roberta-large"  # You can change this to any other suitable pretrained model
 # model_name = "FacebookAI/xlm-roberta-large-finetuned-conll03-english"  # You can change this to any other suitable pretrained model
 
 
-data_collator, tokenized_datasets, tokenizer, label_list, compute_metrics = prepare_ner_dataset(model_name)
-num_labels = len(label_list)
+ner_dataset = prepare_ner_dataset(DATASETS.CONLL, model_name)
 
-config = AutoConfig.from_pretrained(model_name, num_labels=len(label_list))
+config = AutoConfig.from_pretrained(model_name, num_labels=ner_dataset.num_labels)
 print(config.attention_type if hasattr(config, "attention_type") else "Standard attention")
 
 # model = AutoModelForTokenClassification.from_pretrained(model_name, config=config, ignore_mismatched_sizes=True)
@@ -37,10 +36,10 @@ training_args = TrainingArguments(
     save_strategy="epoch",
     load_best_model_at_end=True,
     save_total_limit=1,
-    learning_rate=5e-5,
-    weight_decay=0.01,
+    learning_rate=4e-5,
+    # weight_decay=0.01,
     max_grad_norm=0.5,
-    num_train_epochs=2,
+    num_train_epochs=3,
     warmup_steps=32,
     # gradient_accumulation_steps=2,
     per_device_train_batch_size=256,
@@ -55,17 +54,18 @@ training_args = TrainingArguments(
 trainer = Trainer(
     model=model,
     args=training_args,
-    train_dataset=tokenized_datasets["train"],
-    eval_dataset=tokenized_datasets["dev"],
-    tokenizer=tokenizer,
-    data_collator=data_collator,
-    compute_metrics=compute_metrics,
+    train_dataset=ner_dataset.tokenized_datasets["train"],
+    eval_dataset=ner_dataset.tokenized_datasets["dev"],
+    tokenizer=ner_dataset.tokenizer,
+    data_collator=ner_dataset.data_collator,
+    compute_metrics=ner_dataset.compute_metrics,
     callbacks=[RoundMetricsCallback(decimal_places=2)],
 )
 
 trainer.train()
 
-test_results = trainer.predict(tokenized_datasets["test"])
+print("TEST")
+test_results = trainer.predict(ner_dataset.tokenized_datasets["test"])
 print("test", test_results.metrics)
 
 
