@@ -4,6 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Fred-Eric Kirsi <vegetablejuiceftw@gmail.com>"]
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -30,8 +31,8 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.black]
-line-length = 100
-target-version = ['py38', 'py39', 'py310']
+line-length = 120
+target-version = ['py310']
 include = '\.pyi?$'
 exclude = '''
 /(

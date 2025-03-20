@@ -3,7 +3,11 @@ import torch
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
-from transformers import Trainer, TrainingArguments, BloomForTokenClassification as OriginalBloomForTokenClassification
+from transformers import (
+    Trainer,
+    TrainingArguments,
+    BloomForTokenClassification as OriginalBloomForTokenClassification,
+)
 
 from datahelper.ner_dataset import load_ner_dataset
 from datahelper.utils import RoundMetricsCallback
@@ -16,7 +20,9 @@ data_collator, tokenized_datasets, tokenizer, label_list, compute_metrics = load
 num_labels = len(label_list)
 
 # model = BloomForTokenClassification.from_pretrained(model_name, num_labels=num_labels)#, torch_dtype=torch.bfloat16)
-model = OriginalBloomForTokenClassification.from_pretrained(model_name, num_labels=num_labels)#, torch_dtype=torch.bfloat16)
+model = OriginalBloomForTokenClassification.from_pretrained(
+    model_name, num_labels=num_labels
+)  # , torch_dtype=torch.bfloat16)
 
 
 training_args = TrainingArguments(
@@ -24,27 +30,22 @@ training_args = TrainingArguments(
     eval_strategy="epoch",
     # eval_strategy="steps",
     # eval_steps=32,
-
     report_to="none",
-    logging_strategy='no',
+    logging_strategy="no",
     # save_strategy="no",
     save_strategy="epoch",
     load_best_model_at_end=True,
     save_total_limit=1,
-
     learning_rate=5e-5,
     weight_decay=0.01,
     max_grad_norm=0.5,
-
     num_train_epochs=2,
     warmup_steps=32,
     # gradient_accumulation_steps=2,
     per_device_train_batch_size=256,
     per_device_eval_batch_size=256,
-
     bf16=True,
     bf16_full_eval=True,
-
     dataloader_num_workers=16,  # Adjust based on your CPU cores
     dataloader_pin_memory=True,
 )

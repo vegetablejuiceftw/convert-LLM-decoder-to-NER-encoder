@@ -13,6 +13,7 @@ model_name = "facebook/opt-1.3b"
 
 # model_name = "facebook/opt-2.7b"
 
+
 class OPTForTokenClassification(nn.Module):
     def __init__(self, num_labels):
         super().__init__()
@@ -83,32 +84,24 @@ training_args = TrainingArguments(
     eval_strategy="epoch",
     # eval_strategy="steps",
     # eval_steps=32,
-
     report_to="none",
-    logging_strategy='no',
+    logging_strategy="no",
     save_strategy="no",
-
     learning_rate=3e-5,
     num_train_epochs=16,
     weight_decay=0.01,
     max_grad_norm=0.5,
-
     warmup_steps=32,
-
     # gradient_accumulation_steps=2,
     per_device_train_batch_size=128,
     per_device_eval_batch_size=128,
-
     # tf32=True,
     bf16=True,
     bf16_full_eval=True,
-
     # fp16=True,
     # fp16_full_eval=True,
-
     # half_precision_backend="amp",
     # fp16_opt_level="O1",  # Optimization level for FP16
-
     dataloader_num_workers=16,  # Adjust based on your CPU cores
     dataloader_pin_memory=True,
     # remove_unused_columns=False,

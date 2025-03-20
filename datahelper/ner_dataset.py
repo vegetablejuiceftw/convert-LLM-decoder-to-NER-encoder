@@ -1,5 +1,5 @@
 import numpy as np
-from datasets import load_dataset
+from datasets import load_dataset as load_dataset_web, load_from_disk
 from seqeval.metrics import classification_report
 from transformers import AutoTokenizer
 from transformers import DataCollatorForTokenClassification
@@ -8,23 +8,42 @@ import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
+def load_dataset(key: str):
+    try:
+        ds = load_from_disk(key)
+    except:  # noqa
+        ds = load_dataset_web(key)
+    ds["dev"] = ds.pop("validation", None) or ds["dev"]
+    return ds
+
+
 def load_ner_dataset(model_name: str, max_length=48):
-    # NER_DS = load_dataset("tartuNLP/EstNER", "estner-reannotated", columns=["tokens", "ner_tags"])
-    # NER_DS = load_from_disk("./EstNER")
+    NER_DS = load_dataset(".dataset/EstNER")
     # NER_DS = load_dataset("wnut_17")
-    NER_DS = load_dataset("conll2003")
-    NER_DS['dev'] = NER_DS.pop('validation', None) or NER_DS['dev']
+    # NER_DS = load_dataset("conll2003")
 
     feature = NER_DS["train"].features["ner_tags"].feature
     label2id = {feature.int2str(i): i for i in range(feature.num_classes)}
 
     id2label = {v: k for k, v in label2id.items()}
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name, clean_up_tokenization_spaces=True, max_length=max_length, add_prefix_space=True, padding_side='right')
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_name,
+        clean_up_tokenization_spaces=True,
+        max_length=max_length,
+        add_prefix_space=True,
+        padding_side="right",
+    )
 
     # Tokenize and align labels
     def tokenize_and_align_labels(examples):
-        tokenized_inputs = tokenizer(examples["tokens"], truncation=True, is_split_into_words=True, max_length=max_length, padding=False)#, add_special_tokens=False)#, padding=True)
+        tokenized_inputs = tokenizer(
+            examples["tokens"],
+            truncation=True,
+            is_split_into_words=True,
+            max_length=max_length,
+            padding=False,
+        )  # , add_special_tokens=False)#, padding=True)
         # print(len(tokenized_inputs.tokens(0)), tokenized_inputs.tokens(0), len(examples["tokens"][0]), examples["tokens"][0])
 
         labels = []
@@ -44,7 +63,6 @@ def load_ner_dataset(model_name: str, max_length=48):
 
         tokenized_inputs["labels"] = labels
         return tokenized_inputs
-
 
     # Apply tokenization to the dataset
     tokenized_datasets = NER_DS.map(tokenize_and_align_labels, batched=True, batch_size=8)

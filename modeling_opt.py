@@ -22,7 +22,10 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from transformers.activations import ACT2FN
-from transformers.modeling_attn_mask_utils import _prepare_4d_causal_attention_mask, _prepare_4d_attention_mask
+from transformers.modeling_attn_mask_utils import (
+    _prepare_4d_causal_attention_mask,
+    _prepare_4d_attention_mask,
+)
 from transformers.modeling_outputs import (
     BaseModelOutputWithPast,
     CausalLMOutputWithPast,
@@ -189,7 +192,8 @@ class OPTAttention(nn.Module):
                 )
             attn_weights = attn_weights.view(bsz, self.num_heads, tgt_len, src_len) + attention_mask
             attn_weights = torch.max(
-                attn_weights, torch.tensor(torch.finfo(attn_weights.dtype).min, device=attn_weights.device)
+                attn_weights,
+                torch.tensor(torch.finfo(attn_weights.dtype).min, device=attn_weights.device),
             )
             attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
 
@@ -720,7 +724,7 @@ class OPTDecoder(OPTPreTrainedModel):
                     f"{mask_seq_length} (sum of the lengths of current and past inputs)"
                 )
             causal_attention_mask = _prepare_4d_attention_mask(
-                attention_mask,  dtype=inputs_embeds.dtype, tgt_len=seq_length
+                attention_mask, dtype=inputs_embeds.dtype, tgt_len=seq_length
             )
 
         pos_embeds = self.embed_positions(attention_mask, past_key_values_length)

@@ -10,8 +10,12 @@ from transformers import AutoTokenizer
 from transformers import DataCollatorForTokenClassification
 from transformers import TrainingArguments, Trainer
 from peft import get_peft_model, LoraConfig, TaskType
-from billm import LlamaForTokenClassification, MistralForTokenClassification, OpenELMForTokenClassification, \
-    Qwen2ForTokenClassification
+from billm import (
+    LlamaForTokenClassification,
+    MistralForTokenClassification,
+    OpenELMForTokenClassification,
+    Qwen2ForTokenClassification,
+)
 
 """
 dotenv run -- python billm_ner.py \
@@ -26,37 +30,73 @@ dotenv run -- python billm_ner.py \
 
 """
 parser = argparse.ArgumentParser()
-parser.add_argument('--model_name_or_path', type=str, default='NousResearch/Llama-2-7b-hf',
-                    help='Specify model_name_or_path to set transformer backbone. Default is NousResearch/Llama-2-7b-hf')
-parser.add_argument('--dataset_name_or_path', type=str, default='conll2003',
-                    help='Specify huggingface dataset name or local file path. Default is conll2003.')
-parser.add_argument('--epochs', type=int, default=3, help='Specify number of epochs, default 10')
-parser.add_argument('--batch_size', type=int, default=16, help='Specify number of batch size, default 8')
-parser.add_argument('--learning_rate', type=float, default=3e-5, help='Specify learning rate, default 1e-4')
-parser.add_argument('--weight_decay', type=float, default=0.01, help='Specify weight decay, default 0.01')
-parser.add_argument('--max_length', type=int, default=48, help='Specify max length, default 64')
-parser.add_argument('--lora_r', type=int, default=32, help='Specify lora r, default 12')
-parser.add_argument('--lora_alpha', type=int, default=32, help='Specify lora alpha, default 32')
-parser.add_argument('--lora_dropout', type=float, default=0.1, help='Specify lora alpha, default 0.1')
+parser.add_argument(
+    "--model_name_or_path",
+    type=str,
+    default="NousResearch/Llama-2-7b-hf",
+    help="Specify model_name_or_path to set transformer backbone. Default is NousResearch/Llama-2-7b-hf",
+)
+parser.add_argument(
+    "--dataset_name_or_path",
+    type=str,
+    default="conll2003",
+    help="Specify huggingface dataset name or local file path. Default is conll2003.",
+)
+parser.add_argument("--epochs", type=int, default=3, help="Specify number of epochs, default 10")
+parser.add_argument("--batch_size", type=int, default=16, help="Specify number of batch size, default 8")
+parser.add_argument("--learning_rate", type=float, default=3e-5, help="Specify learning rate, default 1e-4")
+parser.add_argument("--weight_decay", type=float, default=0.01, help="Specify weight decay, default 0.01")
+parser.add_argument("--max_length", type=int, default=48, help="Specify max length, default 64")
+parser.add_argument("--lora_r", type=int, default=32, help="Specify lora r, default 12")
+parser.add_argument("--lora_alpha", type=int, default=32, help="Specify lora alpha, default 32")
+parser.add_argument("--lora_dropout", type=float, default=0.1, help="Specify lora alpha, default 0.1")
 # configure hub
-parser.add_argument('--push_to_hub', type=int, default=0, choices=[0, 1], help='Specify push_to_hub, default 0')
-parser.add_argument('--hub_model_id', type=str, default=None,
-                    help='Specify push_to_hub_model_id, default None, format like organization/model_id')
+parser.add_argument("--push_to_hub", type=int, default=0, choices=[0, 1], help="Specify push_to_hub, default 0")
+parser.add_argument(
+    "--hub_model_id",
+    type=str,
+    default=None,
+    help="Specify push_to_hub_model_id, default None, format like organization/model_id",
+)
 args = parser.parse_args()
-print(f'Args: {args}')
+print(f"Args: {args}")
 
 
 tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
-if 'mistral' in args.model_name_or_path.lower():
-    tokenizer.add_special_tokens({'pad_token': '<unk>'})
+if "mistral" in args.model_name_or_path.lower():
+    tokenizer.add_special_tokens({"pad_token": "<unk>"})
 
 seqeval = evaluate.load("seqeval")
-if args.dataset_name_or_path == 'wnut_17':
+if args.dataset_name_or_path == "wnut_17":
     ds = load_dataset("wnut_17")
-    label2id = { "O": 0, "B-corporation": 1, "I-corporation": 2, "B-creative-work": 3, "I-creative-work": 4, "B-group": 5, "I-group": 6, "B-location": 7, "I-location": 8, "B-person": 9, "I-person": 10, "B-product": 11, "I-product": 12, }
-elif args.dataset_name_or_path == 'conll2003':
+    label2id = {
+        "O": 0,
+        "B-corporation": 1,
+        "I-corporation": 2,
+        "B-creative-work": 3,
+        "I-creative-work": 4,
+        "B-group": 5,
+        "I-group": 6,
+        "B-location": 7,
+        "I-location": 8,
+        "B-person": 9,
+        "I-person": 10,
+        "B-product": 11,
+        "I-product": 12,
+    }
+elif args.dataset_name_or_path == "conll2003":
     ds = load_dataset("conll2003")
-    label2id = {'O': 0, 'B-PER': 1, 'I-PER': 2, 'B-ORG': 3, 'I-ORG': 4, 'B-LOC': 5, 'I-LOC': 6, 'B-MISC': 7, 'I-MISC': 8}
+    label2id = {
+        "O": 0,
+        "B-PER": 1,
+        "I-PER": 2,
+        "B-ORG": 3,
+        "I-ORG": 4,
+        "B-LOC": 5,
+        "I-LOC": 6,
+        "B-MISC": 7,
+        "I-MISC": 8,
+    }
 else:
     # raise NotImplementedError
     ds = load_from_disk(args.dataset_name_or_path)
@@ -65,32 +105,47 @@ else:
     print(label2id)
 
 
-ds['dev'] = ds.pop('validation', None) or ds['dev']
+ds["dev"] = ds.pop("validation", None) or ds["dev"]
 
 
 id2label = {v: k for k, v in label2id.items()}
 label_list = list(label2id.keys())
-if 'mistral' in args.model_name_or_path.lower():
+if "mistral" in args.model_name_or_path.lower():
     MODEL = MistralForTokenClassification
-elif 'llama' in args.model_name_or_path.lower():
+elif "llama" in args.model_name_or_path.lower():
     MODEL = LlamaForTokenClassification
-elif 'qwen' in args.model_name_or_path.lower():
+elif "qwen" in args.model_name_or_path.lower():
     MODEL = Qwen2ForTokenClassification
 else:
     print(args.model_name_or_path)
     raise NotImplementedError
 model = MODEL.from_pretrained(
-    args.model_name_or_path, num_labels=len(label2id), id2label=id2label, label2id=label2id, torch_dtype=torch.bfloat16, device_map="auto",
+    args.model_name_or_path,
+    num_labels=len(label2id),
+    id2label=id2label,
+    label2id=label2id,
+    torch_dtype=torch.bfloat16,
+    device_map="auto",
 )
-peft_config = LoraConfig(task_type=TaskType.TOKEN_CLS,
-                         inference_mode=False,
-                         r=args.lora_r, lora_alpha=args.lora_alpha, lora_dropout=args.lora_dropout)
+peft_config = LoraConfig(
+    task_type=TaskType.TOKEN_CLS,
+    inference_mode=False,
+    r=args.lora_r,
+    lora_alpha=args.lora_alpha,
+    lora_dropout=args.lora_dropout,
+)
 model = get_peft_model(model, peft_config)
 model.print_trainable_parameters()
 
 
 def tokenize_and_align_labels(examples):
-    tokenized_inputs = tokenizer(examples["tokens"], is_split_into_words=True, padding='longest', max_length=args.max_length, truncation=True)
+    tokenized_inputs = tokenizer(
+        examples["tokens"],
+        is_split_into_words=True,
+        padding="longest",
+        max_length=args.max_length,
+        truncation=True,
+    )
 
     labels = []
     for i, label in enumerate(examples[f"ner_tags"]):
