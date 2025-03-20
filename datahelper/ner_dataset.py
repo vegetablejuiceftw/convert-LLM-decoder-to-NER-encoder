@@ -100,9 +100,19 @@ def load_ner_dataset(model_name: str, max_length=48) -> NERDataset:
 
     # Metrics function for evaluation
     def compute_metrics(p):
+        """
+        Compute evaluation metrics for token classification
+        
+        Args:
+            p: tuple of (predictions, labels)
+            
+        Returns:
+            Dictionary of metrics
+        """
         predictions, labels = p
         predictions = np.argmax(predictions, axis=2)
 
+        # Extract true predictions and labels, filtering out padding tokens (-100)
         true_predictions = [
             [id2label[p] for (p, l) in zip(prediction, label) if l != -100]
             for prediction, label in zip(predictions, labels)
@@ -112,13 +122,18 @@ def load_ner_dataset(model_name: str, max_length=48) -> NERDataset:
             for prediction, label in zip(predictions, labels)
         ]
 
+        # Print detailed classification report for debugging
         print(classification_report(true_labels, true_predictions, zero_division=0))
 
+        # Get detailed metrics as dictionary
         results = classification_report(true_labels, true_predictions, output_dict=True, zero_division=0)
+        
+        # Return comprehensive metrics
         return {
-            # "precision": results["micro avg"]["precision"],
-            # "recall": results["micro avg"]["recall"],
+            "precision": results["micro avg"]["precision"],
+            "recall": results["micro avg"]["recall"],
             "f1": results["micro avg"]["f1-score"],
+            "accuracy": results["accuracy"] if "accuracy" in results else results["micro avg"]["precision"],
         }
 
     return NERDataset(
