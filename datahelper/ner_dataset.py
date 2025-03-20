@@ -1,8 +1,7 @@
 import numpy as np
-from datasets import load_dataset, load_from_disk
+from datasets import load_dataset
 from seqeval.metrics import classification_report
-from transformers import AutoTokenizer, AutoModelForTokenClassification, TrainingArguments, Trainer, AutoConfig, \
-    TrainerCallback
+from transformers import AutoTokenizer
 from transformers import DataCollatorForTokenClassification
 import os
 
@@ -78,19 +77,3 @@ def load_ner_dataset(model_name: str, max_length=48):
         }
 
     return data_collator, tokenized_datasets, tokenizer, id2label, compute_metrics
-
-
-
-class RoundMetricsCallback(TrainerCallback):
-    def __init__(self, decimal_places=4):
-        self.decimal_places = decimal_places
-
-    def on_log(self, args, state, control, logs=None, **kwargs):
-        if logs is not None:
-            for key, value in logs.items():
-                if isinstance(value, float):
-                    logs[key] = round(value, self.decimal_places)
-                elif isinstance(value, dict):
-                    for sub_key, sub_value in value.items():
-                        if isinstance(sub_value, float):
-                            value[sub_key] = round(sub_value, self.decimal_places)

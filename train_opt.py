@@ -4,7 +4,7 @@ from torch import nn
 
 from modeling_opt import OPTDecoderLayer, OPTAttention, OPTModel, OPTConfig
 
-from ner_dataset import load_ner_dataset
+from datahelper.ner_dataset import load_ner_dataset
 import torch.nn.functional as F
 
 # model_name = "facebook/opt-350m"

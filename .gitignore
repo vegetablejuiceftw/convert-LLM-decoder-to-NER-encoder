@@ -1,4 +1,5 @@
 .aider*
+.dataset*
 .env
 .idea
 checkpoints/*

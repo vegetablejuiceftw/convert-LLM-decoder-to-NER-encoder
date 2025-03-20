@@ -32,5 +32,4 @@ print(NER_DS["train"].features["ner_tags"])
 print(NER_DS["train"][0]["ner_tags"])
 print(NER_DS)
 
-# Updated path to save in a more organized structure
-NER_DS.save_to_disk("../dataset/EstNER")
+NER_DS.save_to_disk(".dataset/EstNER")

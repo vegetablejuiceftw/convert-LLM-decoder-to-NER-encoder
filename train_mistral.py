@@ -1,9 +1,9 @@
 import torch
 from transformers import Trainer, TrainingArguments, BloomForTokenClassification as OriginalBloomForTokenClassification
 from torch import nn
-from modeling_bloom import BloomBlock, BloomAttention, BloomConfig, BloomModel, BloomForTokenClassification
+from modeling_bloom import BloomBlock, BloomAttention, BloomConfig, BloomModel
 
-from ner_dataset import load_ner_dataset
+from datahelper.ner_dataset import load_ner_dataset
 import torch.nn.functional as F
 
 model_name = "mistralai/Mistral-7B-v0.3"
