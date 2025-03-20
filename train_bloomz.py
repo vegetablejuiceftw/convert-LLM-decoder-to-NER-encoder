@@ -9,14 +9,14 @@ from transformers import (
     BloomForTokenClassification as OriginalBloomForTokenClassification,
 )
 
-from datahelper.ner_dataset import load_ner_dataset
+from datahelper.ner_dataset import prepare_ner_dataset
 from datahelper.utils import RoundMetricsCallback
 
 model_name = "bigscience/bloomz-560m"
 # model_name = "bigscience/bloomz-1b1"
 
 
-data_collator, tokenized_datasets, tokenizer, label_list, compute_metrics = load_ner_dataset(model_name, max_length=32)
+data_collator, tokenized_datasets, tokenizer, label_list, compute_metrics = prepare_ner_dataset(model_name, max_length=32)
 num_labels = len(label_list)
 
 # model = BloomForTokenClassification.from_pretrained(model_name, num_labels=num_labels)#, torch_dtype=torch.bfloat16)

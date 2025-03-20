@@ -7,7 +7,7 @@ from transformers import (
 from torch import nn
 from modeling_bloom import BloomBlock, BloomAttention, BloomConfig, BloomModel
 
-from datahelper.ner_dataset import load_ner_dataset
+from datahelper.ner_dataset import prepare_ner_dataset
 import torch.nn.functional as F
 
 model_name = "mistralai/Mistral-7B-v0.3"
@@ -71,7 +71,7 @@ class LLMForTokenClassification(nn.Module):
         return {"loss": loss, "logits": logits}
 
 
-data_collator, tokenized_datasets, tokenizer, label_list, compute_metrics = load_ner_dataset(model_name, max_length=40)
+data_collator, tokenized_datasets, tokenizer, label_list, compute_metrics = prepare_ner_dataset(model_name, max_length=40)
 num_labels = len(label_list)
 
 # model = OPTForTokenClassification(num_labels)

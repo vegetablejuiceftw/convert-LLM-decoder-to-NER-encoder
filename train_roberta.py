@@ -4,7 +4,7 @@ torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
 from transformers import AutoModelForTokenClassification, TrainingArguments, Trainer, AutoConfig
-from datahelper.ner_dataset import load_ner_dataset
+from datahelper.ner_dataset import prepare_ner_dataset
 from datahelper.utils import RoundMetricsCallback
 
 # Load pretrained model and tokenizer
@@ -13,7 +13,7 @@ model_name = "FacebookAI/xlm-roberta-large"  # You can change this to any other 
 # model_name = "FacebookAI/xlm-roberta-large-finetuned-conll03-english"  # You can change this to any other suitable pretrained model
 
 
-data_collator, tokenized_datasets, tokenizer, label_list, compute_metrics = load_ner_dataset(model_name)
+data_collator, tokenized_datasets, tokenizer, label_list, compute_metrics = prepare_ner_dataset(model_name)
 num_labels = len(label_list)
 
 config = AutoConfig.from_pretrained(model_name, num_labels=len(label_list))

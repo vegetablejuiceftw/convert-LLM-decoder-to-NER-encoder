@@ -4,7 +4,7 @@ from torch import nn
 
 from modeling_opt import OPTDecoderLayer, OPTAttention, OPTModel, OPTConfig
 
-from datahelper.ner_dataset import load_ner_dataset
+from datahelper.ner_dataset import prepare_ner_dataset
 import torch.nn.functional as F
 
 # model_name = "facebook/opt-350m"
@@ -74,7 +74,7 @@ class OPTForTokenClassification(nn.Module):
         return {"loss": loss, "logits": logits}
 
 
-data_collator, tokenized_datasets, tokenizer, label_list, compute_metrics = load_ner_dataset(model_name, max_length=64)
+data_collator, tokenized_datasets, tokenizer, label_list, compute_metrics = prepare_ner_dataset(model_name, max_length=64)
 num_labels = len(label_list)
 
 model = OPTForTokenClassification(num_labels)

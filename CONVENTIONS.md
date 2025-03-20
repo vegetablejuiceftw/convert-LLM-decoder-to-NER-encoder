@@ -1,0 +1,3 @@
+- Use types everywhere possible.
+- do NOT add docstrings to code
+- do NOT add comments to code
