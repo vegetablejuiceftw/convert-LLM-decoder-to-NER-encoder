@@ -4,6 +4,8 @@ from seqeval.metrics import classification_report
 from transformers import AutoTokenizer
 from transformers import DataCollatorForTokenClassification
 import os
+from dataclasses import dataclass
+from typing import Dict, Callable, Any
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -17,14 +19,39 @@ def load_dataset(key: str):
     return ds
 
 
-def load_ner_dataset(model_name: str, max_length=48):
+@dataclass
+class NERDataset:
+    """Class to hold all NER dataset components"""
+    data_collator: DataCollatorForTokenClassification
+    tokenized_datasets: Any
+    tokenizer: Any
+    id2label: Dict[int, str]
+    label2id: Dict[str, int]
+    compute_metrics: Callable
+    
+    @property
+    def num_labels(self) -> int:
+        """Return the number of labels"""
+        return len(self.label2id)
+
+
+def load_ner_dataset(model_name: str, max_length=48) -> NERDataset:
+    """
+    Load and prepare NER dataset
+    
+    Args:
+        model_name: Name of the model to use for tokenization
+        max_length: Maximum sequence length
+        
+    Returns:
+        NERDataset object containing all necessary components
+    """
     NER_DS = load_dataset(".dataset/EstNER")
     # NER_DS = load_dataset("wnut_17")
     # NER_DS = load_dataset("conll2003")
 
     feature = NER_DS["train"].features["ner_tags"].feature
     label2id = {feature.int2str(i): i for i in range(feature.num_classes)}
-
     id2label = {v: k for k, v in label2id.items()}
 
     tokenizer = AutoTokenizer.from_pretrained(
@@ -66,8 +93,8 @@ def load_ner_dataset(model_name: str, max_length=48):
 
     # Apply tokenization to the dataset
     tokenized_datasets = NER_DS.map(tokenize_and_align_labels, batched=True, batch_size=8)
-    tokenized_datasets = tokenized_datasets
     print(tokenized_datasets)
+    
     # Data collator
     data_collator = DataCollatorForTokenClassification(tokenizer=tokenizer)
 
@@ -94,4 +121,11 @@ def load_ner_dataset(model_name: str, max_length=48):
             "f1": results["micro avg"]["f1-score"],
         }
 
-    return data_collator, tokenized_datasets, tokenizer, id2label, compute_metrics
+    return NERDataset(
+        data_collator=data_collator,
+        tokenized_datasets=tokenized_datasets,
+        tokenizer=tokenizer,
+        id2label=id2label,
+        label2id=label2id,
+        compute_metrics=compute_metrics
+    )
