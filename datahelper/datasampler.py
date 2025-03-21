@@ -1,8 +1,8 @@
 from random import sample
 
-from datasets import load_dataset, Dataset, DatasetDict
+from datasets import load_dataset, DatasetDict
 from collections import Counter
-from typing import Dict, List, Set, Tuple, Counter as CounterType
+from typing import Dict, List, Set, Counter as CounterType
 from dataclasses import dataclass
 
 
@@ -17,12 +17,6 @@ class NERDataset:
         return len(self.label2id)
         
     def update(self, **kwargs) -> 'NERDataset':
-        """
-        Update the dataset with new values and return self.
-        
-        Example:
-            ner_data.update(dataset=new_dataset)
-        """
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
