@@ -46,8 +46,22 @@ def load_ner_dataset(dataset_name: str = "conll2003") -> NERDataset:
     
     # Extract the list of NER labels
     ner_labels = [feature.int2str(i) for i in range(feature.num_classes)]
+    
+    # Add ner_labels field to each split in the dataset
+    updated_splits = {}
+    for split_name, split_data in dataset.items():
+        # Add ner_labels to each example in the split
+        updated_split = split_data.map(
+            lambda _: {"ner_labels": ner_labels},
+            batched=True,
+            desc=f"Adding ner_labels to {split_name}"
+        )
+        updated_splits[split_name] = updated_split
+    
+    # Create updated dataset with ner_labels field
+    updated_dataset = DatasetDict(updated_splits)
 
-    return NERDataset(dataset=dataset, label2id=label2id, id2label=id2label, ner_labels=ner_labels)
+    return NERDataset(dataset=updated_dataset, label2id=label2id, id2label=id2label, ner_labels=ner_labels)
 
 
 def report_tag_distribution(ner_dataset: NERDataset, split: str = "train", tag_field: str = "ner_tags"):
