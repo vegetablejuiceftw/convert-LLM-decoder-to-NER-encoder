@@ -1,6 +1,6 @@
 from random import sample
 
-from datasets import load_dataset, DatasetDict
+from datasets import load_dataset, DatasetDict, Dataset
 from collections import Counter
 from typing import Dict, List, Set, Counter as CounterType
 from dataclasses import dataclass
