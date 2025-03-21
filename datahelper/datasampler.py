@@ -24,16 +24,16 @@ def load_ner_dataset(dataset_name: str = "conll2003") -> NERDataset:
     
     return NERDataset(dataset=dataset, label2id=label2id, id2label=id2label)
 
-def report_tag_distribution(dataset, id2label: Dict[int, str], split: str = "train", tag_field: str = "ner_tags"):
-    all_tags = [tag for example in dataset[split] for tag in example[tag_field] if tag != 0]
+def report_tag_distribution(ner_dataset: NERDataset, split: str = "train", tag_field: str = "ner_tags"):
+    all_tags = [tag for example in ner_dataset.dataset[split] for tag in example[tag_field] if tag != 0]
     tag_distribution = Counter(all_tags)
     
     print(f"Entity tag distribution in {split} dataset:")
     for tag_id, count in tag_distribution.most_common():
-        print(f"  {id2label[tag_id]}: {count}")
+        print(f"  {ner_dataset.id2label[tag_id]}: {count}")
     
     print(f"\nTotal entity tags: {sum(tag_distribution.values())}")
-    print(f"Total examples: {len(dataset[split])}")
+    print(f"Total examples: {len(ner_dataset.dataset[split])}")
     
     return tag_distribution
 
@@ -41,7 +41,7 @@ def report_tag_distribution(dataset, id2label: Dict[int, str], split: str = "tra
 ner_data = load_ner_dataset()
 
 # Check the distribution of entity types in the original dataset
-tag_distribution_original = report_tag_distribution(ner_data.dataset, ner_data.id2label)
+tag_distribution_original = report_tag_distribution(ner_data)
 
 
 def get_entity_types(example: Dict, tag_field: str = "ner_tags") -> Set[int]:
@@ -51,10 +51,10 @@ def get_entity_types(example: Dict, tag_field: str = "ner_tags") -> Set[int]:
             entity_types.add(tag)
     return entity_types
 
-def create_balanced_sample(dataset, split: str = "train", target_count: int = 1000, tag_field: str = "ner_tags") -> List[int]:
+def create_balanced_sample(ner_dataset: NERDataset, split: str = "train", target_count: int = 1000, tag_field: str = "ner_tags") -> List[int]:
     # Group examples by their entity types
     entity_to_examples = {}
-    for i, example in enumerate(dataset[split]):
+    for i, example in enumerate(ner_dataset.dataset[split]):
         entity_types = get_entity_types(example, tag_field)
 
         # Skip examples with no entities
@@ -89,7 +89,7 @@ def create_balanced_sample(dataset, split: str = "train", target_count: int = 10
         remaining = target_count - len(sampled_indices)
 
         # Get all indices not yet sampled
-        all_indices = set(range(len(dataset[split])))
+        all_indices = set(range(len(ner_dataset.dataset[split])))
         remaining_indices = list(all_indices - set(sampled_indices))
 
         # Sample randomly from remaining examples
@@ -99,10 +99,10 @@ def create_balanced_sample(dataset, split: str = "train", target_count: int = 10
     return sampled_indices[:target_count]
 
 # Create the balanced dataset
-sampled_indices = create_balanced_sample(ner_data.dataset)
+sampled_indices = create_balanced_sample(ner_data)
 balanced_dataset = ner_data.dataset["train"].select(sampled_indices)
 
-def compare_distributions(original_dist: CounterType, balanced_dist: CounterType, id2label: Dict[int, str]):
+def compare_distributions(original_dist: CounterType, balanced_dist: CounterType, ner_dataset: NERDataset):
     print("\nComparison of tag distributions (original vs. sampled):")
     for tag_id in set(original_dist.keys()) | set(balanced_dist.keys()):
         orig_count = original_dist.get(tag_id, 0)
@@ -113,10 +113,17 @@ def compare_distributions(original_dist: CounterType, balanced_dist: CounterType
 
         change = bal_percent - orig_percent
 
-        print(f"  {id2label[tag_id]}: {orig_percent:.2f}% → {bal_percent:.2f}% ({change:+.2f}%)")
+        print(f"  {ner_dataset.id2label[tag_id]}: {orig_percent:.2f}% → {bal_percent:.2f}% ({change:+.2f}%)")
+
+# Create a new NERDataset with the balanced dataset for reporting
+balanced_ner_data = NERDataset(
+    dataset={"train": balanced_dataset}, 
+    label2id=ner_data.label2id,
+    id2label=ner_data.id2label
+)
 
 # Check the distribution of entity types in our balanced sample
-tag_distribution_balanced = report_tag_distribution({"train": balanced_dataset}, ner_data.id2label, split="train")
+tag_distribution_balanced = report_tag_distribution(balanced_ner_data, split="train")
 
 # Compare the distributions
-compare_distributions(tag_distribution_original, tag_distribution_balanced, ner_data.id2label)
+compare_distributions(tag_distribution_original, tag_distribution_balanced, ner_data)
