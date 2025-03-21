@@ -50,12 +50,24 @@ def load_ner_dataset(dataset_name: str = "conll2003") -> NERDataset:
     # Add ner_labels field to each split in the dataset
     updated_splits = {}
     for split_name, split_data in dataset.items():
-        # Add ner_labels to each example in the split
+        # Add global ner_labels to each example in the split
         updated_split = split_data.map(
             lambda _: {"ner_labels": ner_labels},
             batched=True,
             desc=f"Adding ner_labels to {split_name}"
         )
+        
+        # Convert numeric ner_tags to their string labels for each example
+        def convert_tags_to_labels(example):
+            return {
+                "ner_tags_labels": [id2label.get(tag, "O") for tag in example["ner_tags"]]
+            }
+        
+        updated_split = updated_split.map(
+            convert_tags_to_labels,
+            desc=f"Converting ner_tags to labels in {split_name}"
+        )
+        
         updated_splits[split_name] = updated_split
     
     # Create updated dataset with ner_labels field
