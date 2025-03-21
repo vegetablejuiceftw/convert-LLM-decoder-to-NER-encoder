@@ -75,7 +75,7 @@ def report_tag_distribution(ner_dataset: NERDataset, split: str = "train", tag_f
 
 
 def create_balanced_sample(ner_dataset: NERDataset, split: str = "train",
-                           tag_field: str = "ner_tags") -> List[int]:
+                           tag_field: str = "ner_tags", target_fraction: float = 0.0) -> NERDataset:
     # First, index examples by individual entity type
     entity_type_to_examples: Dict[int, List[int]] = {}
     example_to_entity_types: Dict[int, Set[int]] = {}
@@ -104,7 +104,7 @@ def create_balanced_sample(ner_dataset: NERDataset, split: str = "train",
     # Calculate target count based on dataset size
     candidate_indices = list(set(example_to_entity_types.keys()))
     total_candidates = len(candidate_indices)
-    # target_count = int(total_candidates * target_fraction)
+    target_count = int(total_candidates * target_fraction)
     # print(target_count, total_candidates)
 
     # Track how many examples we have for each entity type
@@ -125,7 +125,7 @@ def create_balanced_sample(ner_dataset: NERDataset, split: str = "train",
         return sum((avg - v for v in vs if v < avg), start=0)
 
     # Iteratively remove examples from over-represented entity types
-    while True:
+    while len(candidate_indices) > target_count:
         values = current_entity_counts.values()
         average = sum(values) / len(values)
         rare_entities = {et for et, c in entity_type_counts.items() if c < average}
@@ -156,7 +156,17 @@ def create_balanced_sample(ner_dataset: NERDataset, split: str = "train",
     if no_entity_examples:
         print(f"Added {len(no_entity_examples)} examples with no entities")
 
-    return list(candidate_indices) + no_entity_examples
+    sampled_indices = list(candidate_indices) + no_entity_examples
+
+    balanced_dataset = ner_dataset.dataset[split].select(sampled_indices)
+
+    # Print sampling statistics
+    print(f"\nSampled {len(sampled_indices)} examples from {len(ner_dataset.dataset[split])} total examples")
+
+    # Update the dataset with the balanced dataset for reporting
+    return ner_dataset.update(
+        dataset=DatasetDict({**ner_dataset.dataset, split: balanced_dataset})
+    )
 
 
 if __name__ == '__main__':
@@ -166,17 +176,7 @@ if __name__ == '__main__':
     # Check the distribution of entity types in the original dataset
     report_tag_distribution(ner_data)
 
-    # Create the balanced dataset
-    sampled_indices = create_balanced_sample(ner_data, split="train")
-    balanced_dataset = ner_data.dataset["train"].select(sampled_indices)
-
-    # Print sampling statistics
-    print(f"\nSampled {len(sampled_indices)} examples from {len(ner_data.dataset['train'])} total examples")
-
-    # Update the dataset with the balanced dataset for reporting
-    balanced_ner_data = ner_data.update(
-        dataset=DatasetDict({**ner_data.dataset, "train": balanced_dataset})
-    )
+    balanced_ner_data = create_balanced_sample(ner_data, split="train")
 
     # Check the distribution of entity types in our balanced sample
     report_tag_distribution(balanced_ner_data, split="train")
