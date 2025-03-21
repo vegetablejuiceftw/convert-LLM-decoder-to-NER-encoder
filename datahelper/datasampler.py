@@ -15,6 +15,20 @@ class NERDataset:
     @property
     def num_labels(self) -> int:
         return len(self.label2id)
+        
+    def update(self, **kwargs) -> 'NERDataset':
+        """
+        Update the dataset with new values and return self.
+        
+        Example:
+            ner_data.update(dataset=new_dataset)
+        """
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+            else:
+                raise AttributeError(f"NERDataset has no attribute '{key}'")
+        return self
 
 
 def get_entity_types(example: Dict, tag_field: str = "ner_tags") -> Set[int]:
@@ -165,11 +179,9 @@ if __name__ == '__main__':
     # Print sampling statistics
     print(f"\nSampled {len(sampled_indices)} examples from {len(ner_data.dataset['train'])} total examples")
 
-    # Create a new NERDataset with the balanced dataset for reporting
-    balanced_ner_data = NERDataset(
-        dataset=DatasetDict({**ner_data.dataset, "train": balanced_dataset}),
-        label2id=ner_data.label2id,
-        id2label=ner_data.id2label
+    # Update the dataset with the balanced dataset for reporting
+    balanced_ner_data = ner_data.update(
+        dataset=DatasetDict({**ner_data.dataset, "train": balanced_dataset})
     )
 
     # Check the distribution of entity types in our balanced sample
