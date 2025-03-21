@@ -164,7 +164,7 @@ def compare_distributions(original_dist: CounterType, balanced_dist: CounterType
 
         change = bal_percent - orig_percent
 
-        print(f"  {ner_dataset.id2label[tag_id]}: {orig_percent:.2f}% → {bal_percent:.2f}% ({change:+.2f}%)")
+        print(f"  {ner_dataset.id2label.get(tag_id, tag_id)}: {orig_percent:.2f}% → {bal_percent:.2f}% ({change:+.2f}%)")
 
 
 # Create a new NERDataset with the balanced dataset for reporting
