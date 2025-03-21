@@ -61,57 +61,96 @@ tag_distribution_original = report_tag_distribution(ner_data)
 
 def create_balanced_sample(ner_dataset: NERDataset, split: str = "train", target_count: int = 4000,
                            tag_field: str = "ner_tags") -> List[int]:
-    # Group examples by their entity types
-    entity_to_examples = {}
+    # First, index examples by individual entity type
+    entity_type_to_examples: Dict[int, List[int]] = {}
+    example_to_entity_types: Dict[int, Set[int]] = {}
+    
+    # Count total occurrences of each entity type
+    entity_type_counts: CounterType[int] = Counter()
+    
     for i, example in enumerate(ner_dataset.dataset[split]):
         entity_types = get_entity_types(example, tag_field)
-
+        
         # Skip examples with no entities
-        if not entity_types:
-            print("No entities", i)
+        if -1 in entity_types:
             continue
-
-        # Create a key based on the set of entity types
-        key = tuple(sorted(entity_types))
-
-        if key not in entity_to_examples:
-            entity_to_examples[key] = []
-
-        entity_to_examples[key].append(i)
-
-    # Now sample from each group to create a balanced dataset
-    sampled_indices = []
-
-    # Calculate how many examples to sample from each group
-    total_groups = len(entity_to_examples)
-    samples_per_group = target_count // total_groups
-
-    print(f"\nSampling approximately {samples_per_group} examples from each of {total_groups} entity type combinations")
-
-    # Ensure we get at least one sample from each group, if possible
-    for key, indices in entity_to_examples.items():
-        # Take the minimum between available examples and desired count
-        count = min(len(indices), samples_per_group)
-        sampled_indices.extend(random.sample(indices, count))
-
-    # If we haven't reached our target, sample more randomly
+            
+        example_to_entity_types[i] = entity_types
+        
+        # Add this example to each entity type's list
+        for entity_type in entity_types:
+            if entity_type not in entity_type_to_examples:
+                entity_type_to_examples[entity_type] = []
+            entity_type_to_examples[entity_type].append(i)
+            entity_type_counts[entity_type] += 1
+    
+    # Calculate target counts for each entity type to achieve balance
+    total_entity_types = len(entity_type_to_examples)
+    target_per_entity = max(50, target_count // total_entity_types)
+    
+    print(f"\nBalancing {total_entity_types} entity types with target ~{target_per_entity} examples each")
+    
+    # First pass: ensure representation of rare entity types
+    sampled_indices = set()
+    examples_by_rarity = sorted(entity_type_to_examples.items(), 
+                               key=lambda x: len(x[1]))
+    
+    # Start with rarest entity types
+    for entity_type, indices in examples_by_rarity:
+        # Calculate how many more examples we need for this entity type
+        current_count = sum(1 for idx in sampled_indices 
+                           if entity_type in example_to_entity_types.get(idx, set()))
+        needed = min(target_per_entity - current_count, len(indices))
+        
+        if needed <= 0:
+            continue
+            
+        # Get candidate indices not yet sampled
+        candidates = [idx for idx in indices if idx not in sampled_indices]
+        if not candidates:
+            continue
+            
+        # Sample from candidates
+        new_samples = random.sample(candidates, min(needed, len(candidates)))
+        sampled_indices.update(new_samples)
+    
+    # Second pass: fill up to target count with stratified sampling
     if len(sampled_indices) < target_count:
         remaining = target_count - len(sampled_indices)
-
-        # Get all indices not yet sampled
-        all_indices = set(range(len(ner_dataset.dataset[split])))
-        remaining_indices = list(all_indices - set(sampled_indices))
-
-        # Sample randomly from remaining examples
-        additional_samples = random.sample(remaining_indices, min(remaining, len(remaining_indices)))
-        sampled_indices.extend(additional_samples)
-
-    return sampled_indices[:target_count]
+        
+        # Get all indices not yet sampled that have entities
+        remaining_indices = [i for i in example_to_entity_types.keys() 
+                            if i not in sampled_indices]
+        
+        # Weight examples by inverse frequency of their entity types
+        weights = []
+        for idx in remaining_indices:
+            # Calculate weight based on rarity of entity types in this example
+            entity_weights = [1.0 / max(1, entity_type_counts[et]) 
+                             for et in example_to_entity_types[idx]]
+            weights.append(sum(entity_weights))
+        
+        # Normalize weights
+        if weights and sum(weights) > 0:
+            weights = [w / sum(weights) for w in weights]
+            
+            # Sample remaining examples with weights
+            additional_samples = random.choices(
+                remaining_indices, 
+                weights=weights, 
+                k=min(remaining, len(remaining_indices))
+            )
+            sampled_indices.update(additional_samples)
+    
+    return list(sampled_indices)[:target_count]
 
 
 # Create the balanced dataset
 sampled_indices = create_balanced_sample(ner_data, split="train")
 balanced_dataset = ner_data.dataset["train"].select(sampled_indices)
+
+# Print sampling statistics
+print(f"\nSampled {len(sampled_indices)} examples from {len(ner_data.dataset['train'])} total examples")
 
 
 def compare_distributions(original_dist: CounterType, balanced_dist: CounterType, ner_dataset: NERDataset):
