@@ -24,10 +24,18 @@ def load_dataset(key: str):
 class NERDataset:
     """Class to hold all NER dataset components"""
     data_collator: DataCollatorForTokenClassification
-    tokenized_datasets: Any
+    dataset: Any
     tokenizer: Any  #
     id2label: Dict[int, str]
     label2id: Dict[str, int]
+
+    def update(self, **kwargs) -> 'NERDataset':
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+            else:
+                raise AttributeError(f"NERDataset has no attribute '{key}'")
+        return self
 
     @property
     def num_labels(self) -> int:
@@ -70,10 +78,19 @@ class DATASETS:
 
 
 def prepare_ner_dataset(dataset: str, model_name: str, max_length=48) -> NERDataset:
-    NER_DS = load_dataset(dataset)
-    feature = NER_DS["train"].features["ner_tags"].feature
+    dataset = load_dataset(dataset)
+    feature = dataset["train"].features["ner_tags"].feature
     label2id = {feature.int2str(i): i for i in range(feature.num_classes)}
     id2label = {v: k for k, v in label2id.items()}
+
+    def convert_tags_to_labels(example):
+        return {
+            "ner_labels": [id2label[tag].replace("B-", "").replace("I-", "") for tag in example["ner_tags"]]
+        }
+
+    dataset = dataset.map(
+        convert_tags_to_labels,
+    )
 
     tokenizer = AutoTokenizer.from_pretrained(
         model_name,
@@ -113,7 +130,7 @@ def prepare_ner_dataset(dataset: str, model_name: str, max_length=48) -> NERData
         return tokenized_inputs
 
     # Apply tokenization to the dataset
-    tokenized_datasets = NER_DS.map(tokenize_and_align_labels, batched=True, batch_size=8)
+    tokenized_datasets = dataset.map(tokenize_and_align_labels, batched=True, batch_size=8)
     print(tokenized_datasets)
     
     # Data collator
@@ -121,7 +138,7 @@ def prepare_ner_dataset(dataset: str, model_name: str, max_length=48) -> NERData
 
     return NERDataset(
         data_collator=data_collator,
-        tokenized_datasets=tokenized_datasets,
+        dataset=tokenized_datasets,
         tokenizer=tokenizer,
         id2label=id2label,
         label2id=label2id,

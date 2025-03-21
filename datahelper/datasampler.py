@@ -11,7 +11,6 @@ class NERDataset:
     dataset: DatasetDict
     label2id: Dict[str, int]
     id2label: Dict[int, str]
-    ner_labels: List[str]
 
     @property
     def num_labels(self) -> int:
@@ -26,13 +25,11 @@ class NERDataset:
         return self
 
 
-def get_entity_types(example: Dict, tag_field: str = "ner_tags") -> Set[int]:
+def get_entity_types(example: Dict, tag_field: str = "ner_tags", empty_value="O") -> Set[int]:
     entity_types = set()
     for tag in example[tag_field]:
-        if tag != 0:  # Not 'O'
+        if tag != empty_value:  # Not 'O'
             entity_types.add(tag)
-    if not entity_types:
-        return {-1}  # Special marker for examples with no entities
     return entity_types
 
 
@@ -43,47 +40,27 @@ def load_ner_dataset(dataset_name: str = "conll2003") -> NERDataset:
     feature = dataset["train"].features["ner_tags"].feature
     label2id = {feature.int2str(i): i for i in range(feature.num_classes)}
     id2label = {v: k for k, v in label2id.items()}
+    print(id2label)
     
-    # Extract the list of NER labels
-    ner_labels = [feature.int2str(i) for i in range(feature.num_classes)]
-    
-    # Add ner_labels field to each split in the dataset
-    updated_splits = {}
-    for split_name, split_data in dataset.items():
-        # Add global ner_labels to each example in the split
-        updated_split = split_data.map(
-            lambda _: {"ner_labels": ner_labels},
-            batched=True,
-            desc=f"Adding ner_labels to {split_name}"
-        )
-        
-        # Convert numeric ner_tags to their string labels for each example
-        def convert_tags_to_labels(example):
-            return {
-                "ner_tags_labels": [id2label.get(tag, "O") for tag in example["ner_tags"]]
-            }
-        
-        updated_split = updated_split.map(
-            convert_tags_to_labels,
-            desc=f"Converting ner_tags to labels in {split_name}"
-        )
-        
-        updated_splits[split_name] = updated_split
-    
-    # Create updated dataset with ner_labels field
-    updated_dataset = DatasetDict(updated_splits)
+    def convert_tags_to_labels(example):
+        return {
+            "ner_labels": [id2label[tag].replace("B-", "").replace("I-", "") for tag in example["ner_tags"]]
+        }
 
-    return NERDataset(dataset=updated_dataset, label2id=label2id, id2label=id2label, ner_labels=ner_labels)
+    dataset = dataset.map(
+        convert_tags_to_labels,
+    )
+        
+    return NERDataset(dataset=dataset, label2id=label2id, id2label=id2label)
 
 
-def report_tag_distribution(ner_dataset: NERDataset, split: str = "train", tag_field: str = "ner_tags"):
-    # Count all entity tags, including the special -1 tag for no entities
+def report_tag_distribution(ner_dataset: NERDataset, split: str = "train", tag_field: str = "ner_labels", empty_value="O"):
     all_tags = []
     no_entity = 0
 
     for example in ner_dataset.dataset[split]:
-        entity_types = get_entity_types(example, tag_field)
-        if -1 in entity_types:
+        entity_types = get_entity_types(example, tag_field, empty_value=empty_value)
+        if not entity_types:
             no_entity += 1
             continue
         all_tags.extend(entity_types)
@@ -96,15 +73,13 @@ def report_tag_distribution(ner_dataset: NERDataset, split: str = "train", tag_f
     for tag_id, count in tag_distribution.most_common():
         print(f"  {ner_dataset.id2label.get(tag_id, tag_id)}: {count / total * 100:.1f}% {count}")
 
-    print(f"\nTotal entity tags: {sum(tag_distribution.values()) - tag_distribution.get(-1, 0)}")
     print(f"Total examples: {len(ner_dataset.dataset[split])}")
-
     entity_max, entity_min = max(tag_distribution.values()), min(tag_distribution.values())
     print(f"Max/Min/Diff: {entity_max}, {entity_min}, {(entity_max - entity_min) / total * 100:.1f}%")
 
 
 def create_balanced_sample(dataset: Dataset,
-                           tag_field: str = "ner_tags", target_fraction: float = 0.0, id2label: Dict[int, str] | None = None) -> Dataset:
+                           tag_field: str = "ner_labels", target_fraction: float = 0.0, id2label: Dict[int, str] | None = None, empty_value="O") -> Dataset:
     id2label = id2label or {}
     # First, index examples by individual entity type
     entity_type_to_examples: Dict[int, List[int]] = {}
@@ -115,10 +90,8 @@ def create_balanced_sample(dataset: Dataset,
     entity_type_counts: CounterType[int] = Counter()
 
     for i, example in enumerate(dataset):
-        entity_types = get_entity_types(example, tag_field)
-
-        # Handle examples with no entities separately
-        if -1 in entity_types:
+        entity_types = get_entity_types(example, tag_field, empty_value=empty_value)
+        if not entity_types:
             no_entity_examples.append(i)
             continue
 
@@ -205,7 +178,9 @@ if __name__ == '__main__':
     # Get the sampled indices
     balanced_dataset = create_balanced_sample(
         ner_data.dataset["train"], 
-        id2label = ner_data.id2label
+        id2label = ner_data.id2label,
+        tag_field="ner_labels",
+        target_fraction=0.8,
     )
     
     # Update the NERDataset with the balanced dataset
