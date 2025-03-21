@@ -1,17 +1,28 @@
-from datasets import load_dataset
+from datasets import load_dataset, Dataset, DatasetDict
 import random
 from collections import Counter
 from typing import Dict, List, Set, Tuple, Counter as CounterType
+from dataclasses import dataclass
 
-def load_ner_dataset(dataset_name: str = "conll2003"):
-    NER_DS = load_dataset(dataset_name)
+@dataclass
+class NERDataset:
+    dataset: DatasetDict
+    label2id: Dict[str, int]
+    id2label: Dict[int, str]
+    
+    @property
+    def num_labels(self) -> int:
+        return len(self.label2id)
+
+def load_ner_dataset(dataset_name: str = "conll2003") -> NERDataset:
+    dataset = load_dataset(dataset_name)
     
     # Get the proper named labels
-    feature = NER_DS["train"].features["ner_tags"].feature
+    feature = dataset["train"].features["ner_tags"].feature
     label2id = {feature.int2str(i): i for i in range(feature.num_classes)}
     id2label = {v: k for k, v in label2id.items()}
     
-    return NER_DS, label2id, id2label
+    return NERDataset(dataset=dataset, label2id=label2id, id2label=id2label)
 
 def report_tag_distribution(dataset, id2label: Dict[int, str], split: str = "train", tag_field: str = "ner_tags"):
     all_tags = [tag for example in dataset[split] for tag in example[tag_field] if tag != 0]
@@ -27,10 +38,10 @@ def report_tag_distribution(dataset, id2label: Dict[int, str], split: str = "tra
     return tag_distribution
 
 # Load the dataset
-NER_DS, label2id, id2label = load_ner_dataset()
+ner_data = load_ner_dataset()
 
 # Check the distribution of entity types in the original dataset
-tag_distribution_original = report_tag_distribution(NER_DS, id2label)
+tag_distribution_original = report_tag_distribution(ner_data.dataset, ner_data.id2label)
 
 
 def get_entity_types(example: Dict, tag_field: str = "ner_tags") -> Set[int]:
@@ -88,8 +99,8 @@ def create_balanced_sample(dataset, split: str = "train", target_count: int = 10
     return sampled_indices[:target_count]
 
 # Create the balanced dataset
-sampled_indices = create_balanced_sample(NER_DS)
-balanced_dataset = NER_DS["train"].select(sampled_indices)
+sampled_indices = create_balanced_sample(ner_data.dataset)
+balanced_dataset = ner_data.dataset["train"].select(sampled_indices)
 
 def compare_distributions(original_dist: CounterType, balanced_dist: CounterType, id2label: Dict[int, str]):
     print("\nComparison of tag distributions (original vs. sampled):")
@@ -108,4 +119,4 @@ def compare_distributions(original_dist: CounterType, balanced_dist: CounterType
 tag_distribution_balanced = report_tag_distribution({"train": balanced_dataset}, id2label, split="train")
 
 # Compare the distributions
-compare_distributions(tag_distribution_original, tag_distribution_balanced, id2label)
+compare_distributions(tag_distribution_original, tag_distribution_balanced, ner_data.id2label)
