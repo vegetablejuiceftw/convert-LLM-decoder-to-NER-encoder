@@ -11,6 +11,7 @@ class NERDataset:
     dataset: DatasetDict
     label2id: Dict[str, int]
     id2label: Dict[int, str]
+    ner_labels: List[str]
 
     @property
     def num_labels(self) -> int:
@@ -42,8 +43,11 @@ def load_ner_dataset(dataset_name: str = "conll2003") -> NERDataset:
     feature = dataset["train"].features["ner_tags"].feature
     label2id = {feature.int2str(i): i for i in range(feature.num_classes)}
     id2label = {v: k for k, v in label2id.items()}
+    
+    # Extract the list of NER labels
+    ner_labels = [feature.int2str(i) for i in range(feature.num_classes)]
 
-    return NERDataset(dataset=dataset, label2id=label2id, id2label=id2label)
+    return NERDataset(dataset=dataset, label2id=label2id, id2label=id2label, ner_labels=ner_labels)
 
 
 def report_tag_distribution(ner_dataset: NERDataset, split: str = "train", tag_field: str = "ner_tags"):
