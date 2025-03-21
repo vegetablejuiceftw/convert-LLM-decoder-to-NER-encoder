@@ -67,15 +67,15 @@ def report_tag_distribution(ner_dataset: NERDataset, split: str = "train", tag_f
         print(f"  {ner_dataset.id2label.get(tag_id, tag_id)}: {count / total * 100:.1f}% {count}")
 
     print(f"\nTotal entity tags: {sum(tag_distribution.values()) - tag_distribution.get(-1, 0)}")
-    print(f"Examples with no entities: {tag_distribution.get(-1, 0)}")
     print(f"Total examples: {len(ner_dataset.dataset[split])}")
 
     entity_max, entity_min = max(tag_distribution.values()), min(tag_distribution.values())
     print(f"Max/Min/Diff: {entity_max}, {entity_min}, {(entity_max - entity_min) / total * 100:.1f}%")
 
 
-def create_balanced_sample(dataset: Dataset, id2label: Dict[int, str],
-                           tag_field: str = "ner_tags", target_fraction: float = 0.0) -> List[int]:
+def create_balanced_sample(dataset: Dataset,
+                           tag_field: str = "ner_tags", target_fraction: float = 0.0, id2label: Dict[int, str] | None = None) -> Dataset:
+    id2label = id2label or {}
     # First, index examples by individual entity type
     entity_type_to_examples: Dict[int, List[int]] = {}
     example_to_entity_types: Dict[int, Set[int]] = {}
@@ -118,7 +118,7 @@ def create_balanced_sample(dataset: Dataset, id2label: Dict[int, str],
     ideal_count_per_type = total_candidates // total_entity_types
     print(entity_type_counts, ideal_count_per_type)
     rare_entities = {et for et, c in entity_type_counts.items() if c < ideal_count_per_type}
-    print([id2label[et] for et in rare_entities])
+    print([id2label.get(et, et) for et in rare_entities])
 
     def loss_fn(vs):
         avg = sum(vs) / len(vs)
@@ -150,7 +150,7 @@ def create_balanced_sample(dataset: Dataset, id2label: Dict[int, str],
             break
 
     for et, c in Counter(removed).most_common():
-        print(id2label[et], c)
+        print(id2label.get(et, et), c)
 
     # Add examples with no entities
     if no_entity_examples:
@@ -162,7 +162,7 @@ def create_balanced_sample(dataset: Dataset, id2label: Dict[int, str],
     print(f"\nSampled {len(sampled_indices)} examples from {len(dataset)} total examples")
 
     # Return the sampled indices
-    return sampled_indices
+    return dataset.select(sampled_indices)
 
 
 if __name__ == '__main__':
@@ -173,13 +173,10 @@ if __name__ == '__main__':
     report_tag_distribution(ner_data)
 
     # Get the sampled indices
-    sampled_indices = create_balanced_sample(
+    balanced_dataset = create_balanced_sample(
         ner_data.dataset["train"], 
-        ner_data.id2label
+        id2label = ner_data.id2label
     )
-    
-    # Create a balanced dataset
-    balanced_dataset = ner_data.dataset["train"].select(sampled_indices)
     
     # Update the NERDataset with the balanced dataset
     balanced_ner_data = ner_data.update(
