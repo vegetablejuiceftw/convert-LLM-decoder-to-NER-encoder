@@ -158,8 +158,6 @@ def create_balanced_sample(dataset: Dataset, id2label: Dict[int, str],
 
     sampled_indices = list(candidate_indices) + no_entity_examples
 
-    balanced_dataset = ner_dataset.dataset[split].select(sampled_indices)
-
     # Print sampling statistics
     print(f"\nSampled {len(sampled_indices)} examples from {len(dataset)} total examples")
 
