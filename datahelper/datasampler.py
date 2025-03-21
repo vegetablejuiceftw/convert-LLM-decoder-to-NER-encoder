@@ -116,7 +116,7 @@ def compare_distributions(original_dist: CounterType, balanced_dist: CounterType
         print(f"  {id2label[tag_id]}: {orig_percent:.2f}% → {bal_percent:.2f}% ({change:+.2f}%)")
 
 # Check the distribution of entity types in our balanced sample
-tag_distribution_balanced = report_tag_distribution({"train": balanced_dataset}, id2label, split="train")
+tag_distribution_balanced = report_tag_distribution({"train": balanced_dataset}, ner_data.id2label, split="train")
 
 # Compare the distributions
 compare_distributions(tag_distribution_original, tag_distribution_balanced, ner_data.id2label)
