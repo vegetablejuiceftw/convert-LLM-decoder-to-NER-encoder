@@ -8,7 +8,7 @@ from datahelper.ner_dataset import prepare_ner_dataset, DATASETS
 from datahelper.utils import RoundMetricsCallback
 
 # Load pretrained model and tokenizer
-model_name, size = "FacebookAI/xlm-roberta-base", 1  # You can change this to any other suitable pretrained model
+# model_name = "FacebookAI/xlm-roberta-base"  # You can change this to any other suitable pretrained model
 model_name = "FacebookAI/xlm-roberta-large"  # You can change this to any other suitable pretrained model
 # model_name = "FacebookAI/xlm-roberta-large-finetuned-conll03-english"  # You can change this to any other suitable pretrained model
 
@@ -16,7 +16,6 @@ model_name = "FacebookAI/xlm-roberta-large"  # You can change this to any other 
 ner_dataset = prepare_ner_dataset(DATASETS.CONLL, model_name)
 
 config = AutoConfig.from_pretrained(model_name, num_labels=ner_dataset.num_labels)
-print(config.attention_type if hasattr(config, "attention_type") else "Standard attention")
 
 # model = AutoModelForTokenClassification.from_pretrained(model_name, config=config, ignore_mismatched_sizes=True)
 model = AutoModelForTokenClassification.from_pretrained(
@@ -24,6 +23,7 @@ model = AutoModelForTokenClassification.from_pretrained(
     config=config,
     torch_dtype=torch.bfloat16,
 )
+print(config.name_or_path, config.attention_type if hasattr(config, "attention_type") else "Standard attention")
 
 training_args = TrainingArguments(
     output_dir="./results/roberta/",
