@@ -22,7 +22,7 @@ def get_entity_types(example: Dict, tag_field: str = "ner_tags") -> Set[int]:
         if tag != 0:  # Not 'O'
             entity_types.add(tag)
     if not entity_types:
-        return {-1}
+        return {-1}  # Special marker for examples with no entities
     return entity_types
 
 
@@ -38,15 +38,32 @@ def load_ner_dataset(dataset_name: str = "conll2003") -> NERDataset:
 
 
 def report_tag_distribution(ner_dataset: NERDataset, split: str = "train", tag_field: str = "ner_tags"):
-    all_tags = [tag for example in ner_dataset.dataset[split] for tag in get_entity_types(example, tag_field) if
-                tag != 0]
+    # Count all entity tags, including the special -1 tag for no entities
+    all_tags = []
+    no_entity_count = 0
+    
+    for example in ner_dataset.dataset[split]:
+        entity_types = get_entity_types(example, tag_field)
+        if -1 in entity_types:
+            no_entity_count += 1
+        else:
+            all_tags.extend(entity_types)
+    
     tag_distribution = Counter(all_tags)
+    
+    # Add the no-entity count to the distribution
+    if no_entity_count > 0:
+        tag_distribution[-1] = no_entity_count
 
     print(f"Entity tag distribution in {split} dataset:")
     for tag_id, count in tag_distribution.most_common():
-        print(f"  {ner_dataset.id2label.get(tag_id, tag_id)}: {count}")
+        if tag_id == -1:
+            print(f"  NO_ENTITY: {count}")
+        else:
+            print(f"  {ner_dataset.id2label.get(tag_id, tag_id)}: {count}")
 
-    print(f"\nTotal entity tags: {sum(tag_distribution.values())}")
+    print(f"\nTotal entity tags: {sum(tag_distribution.values()) - tag_distribution.get(-1, 0)}")
+    print(f"Examples with no entities: {tag_distribution.get(-1, 0)}")
     print(f"Total examples: {len(ner_dataset.dataset[split])}")
 
     return tag_distribution
@@ -60,10 +77,11 @@ tag_distribution_original = report_tag_distribution(ner_data)
 
 
 def create_balanced_sample(ner_dataset: NERDataset, split: str = "train", target_count: int = 4000,
-                           tag_field: str = "ner_tags") -> List[int]:
+                           tag_field: str = "ner_tags", no_entity_ratio: float = 0.15) -> List[int]:
     # First, index examples by individual entity type
     entity_type_to_examples: Dict[int, List[int]] = {}
     example_to_entity_types: Dict[int, Set[int]] = {}
+    no_entity_examples: List[int] = []
     
     # Count total occurrences of each entity type
     entity_type_counts: CounterType[int] = Counter()
@@ -71,8 +89,9 @@ def create_balanced_sample(ner_dataset: NERDataset, split: str = "train", target
     for i, example in enumerate(ner_dataset.dataset[split]):
         entity_types = get_entity_types(example, tag_field)
         
-        # Skip examples with no entities
+        # Handle examples with no entities separately
         if -1 in entity_types:
+            no_entity_examples.append(i)
             continue
             
         example_to_entity_types[i] = entity_types
@@ -86,9 +105,15 @@ def create_balanced_sample(ner_dataset: NERDataset, split: str = "train", target
     
     # Calculate target counts for each entity type to achieve balance
     total_entity_types = len(entity_type_to_examples)
-    target_per_entity = max(50, target_count // total_entity_types)
+    
+    # Reserve some portion of the target count for examples with no entities
+    no_entity_target = int(target_count * no_entity_ratio)
+    entity_target_count = target_count - no_entity_target
+    
+    target_per_entity = max(50, entity_target_count // total_entity_types)
     
     print(f"\nBalancing {total_entity_types} entity types with target ~{target_per_entity} examples each")
+    print(f"Including ~{no_entity_target} examples with no entities ({no_entity_ratio*100:.1f}% of total)")
     
     # First pass: ensure representation of rare entity types
     sampled_indices = set()
@@ -114,9 +139,9 @@ def create_balanced_sample(ner_dataset: NERDataset, split: str = "train", target
         new_samples = random.sample(candidates, min(needed, len(candidates)))
         sampled_indices.update(new_samples)
     
-    # Second pass: fill up to target count with stratified sampling
-    if len(sampled_indices) < target_count:
-        remaining = target_count - len(sampled_indices)
+    # Second pass: fill up to entity target count with stratified sampling
+    if len(sampled_indices) < entity_target_count:
+        remaining = entity_target_count - len(sampled_indices)
         
         # Get all indices not yet sampled that have entities
         remaining_indices = [i for i in example_to_entity_types.keys() 
@@ -142,6 +167,15 @@ def create_balanced_sample(ner_dataset: NERDataset, split: str = "train", target
             )
             sampled_indices.update(additional_samples)
     
+    # Third pass: add examples with no entities
+    if no_entity_examples and no_entity_target > 0:
+        # Sample from examples with no entities
+        no_entity_sample_count = min(no_entity_target, len(no_entity_examples))
+        no_entity_samples = random.sample(no_entity_examples, no_entity_sample_count)
+        sampled_indices.update(no_entity_samples)
+        
+        print(f"Added {len(no_entity_samples)} examples with no entities")
+    
     return list(sampled_indices)[:target_count]
 
 
@@ -164,7 +198,11 @@ def compare_distributions(original_dist: CounterType, balanced_dist: CounterType
 
         change = bal_percent - orig_percent
 
-        print(f"  {ner_dataset.id2label.get(tag_id, tag_id)}: {orig_percent:.2f}% → {bal_percent:.2f}% ({change:+.2f}%)")
+        # Handle the special -1 case (no entities)
+        if tag_id == -1:
+            print(f"  NO_ENTITY: {orig_percent:.2f}% → {bal_percent:.2f}% ({change:+.2f}%)")
+        else:
+            print(f"  {ner_dataset.id2label.get(tag_id, tag_id)}: {orig_percent:.2f}% → {bal_percent:.2f}% ({change:+.2f}%)")
 
 
 # Create a new NERDataset with the balanced dataset for reporting
