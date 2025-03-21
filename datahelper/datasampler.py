@@ -76,7 +76,7 @@ ner_data = load_ner_dataset()
 tag_distribution_original = report_tag_distribution(ner_data)
 
 
-def create_balanced_sample(ner_dataset: NERDataset, split: str = "train", target_count: int = 4000,
+def create_balanced_sample(ner_dataset: NERDataset, split: str = "train", target_fraction: float = 0.9,
                            tag_field: str = "ner_tags", no_entity_ratio: float = 0.15) -> List[int]:
     """
     Create a balanced sample by removing examples with abundant entity types while preserving rare ones.
@@ -112,6 +112,10 @@ def create_balanced_sample(ner_dataset: NERDataset, split: str = "train", target
                 entity_type_to_examples[entity_type] = []
             entity_type_to_examples[entity_type].append(i)
             entity_type_counts[entity_type] += 1
+    
+    # Calculate target count based on dataset size
+    total_examples = len(ner_dataset.dataset[split])
+    target_count = int(total_examples * target_fraction)
     
     # Calculate target counts for each entity type to achieve balance
     total_entity_types = len(entity_type_to_examples)
@@ -196,7 +200,7 @@ def create_balanced_sample(ner_dataset: NERDataset, split: str = "train", target
 
 
 # Create the balanced dataset
-sampled_indices = create_balanced_sample(ner_data, split="train")
+sampled_indices = create_balanced_sample(ner_data, split="train", target_fraction=0.9)
 balanced_dataset = ner_data.dataset["train"].select(sampled_indices)
 
 # Print sampling statistics
