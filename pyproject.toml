@@ -19,6 +19,8 @@ billm = "*"
 peft = "*"
 python-dotenv = {extras = ["cli"], version = "*"}
 evaluate = "*"
+deepspeed = "*"
+bitsandbytes = "*"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"

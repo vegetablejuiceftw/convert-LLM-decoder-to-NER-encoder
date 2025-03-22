@@ -14,7 +14,6 @@ from datahelper.utils import RoundMetricsCallback
 # model_name = "FacebookAI/xlm-roberta-base"  # You can change this to any other suitable pretrained model
 model_name = "FacebookAI/xlm-roberta-large"  # You can change this to any other suitable pretrained model
 # model_name = "FacebookAI/xlm-roberta-large-finetuned-conll03-english"  # You can change this to any other suitable pretrained model
-# model_name = "facebook/xlm-roberta-xl"  # You can change this to any other suitable pretrained model
 
 torch_dtype = torch.bfloat16
 # torch_dtype = torch.float32
@@ -28,22 +27,48 @@ config = AutoConfig.from_pretrained(model_name, num_labels=ner_dataset.num_label
 model = AutoModelForTokenClassification.from_pretrained(
     model_name,
     config=config,
-    torch_dtype=torch_dtype,
+    # torch_dtype=torch_dtype,  # causes learning effectiveness to drop?
     ignore_mismatched_sizes=True,
+
+    # attn_implementation="flash_attention_2",
+    # use_cache=False,
+    trust_remote_code=True,
 )
+print(model)
+
+# 2. Configure LoRA
+from peft import get_peft_model, LoraConfig, TaskType
+peft_config = LoraConfig(
+    task_type=TaskType.SEQ_CLS,
+    r=32,                       # Rank of the update matrices
+    lora_alpha=32,              # Parameter for scaling
+    lora_dropout=0.1,           # Dropout probability for LoRA layers
+    target_modules=["query", "key", "value", "dense"],  # Which modules to apply LoRA to
+    bias="none",
+    modules_to_save=["classifier"],  # Save the classifier if fine-tuning for classification
+)
+# 3. Apply LoRA to the model
+model = get_peft_model(model, peft_config)
+model.print_trainable_parameters()  # Shows % of trainable parameters
+
+
 print(config.name_or_path, config.attention_type if hasattr(config, "attention_type") else "Standard attention")
 
 
 
 class ResamplingDataset(Dataset):
-    def __init__(self, dataset, target_fraction=0.8):
+    def __init__(self, dataset, target_fraction: float | None =0.8):
         self.dataset = dataset
         self.target_fraction = target_fraction
         self.current_data = None
         self.resample()
 
     def resample(self):
+        if self.target_fraction is None:
+            self.current_data = self.dataset
+            return
         self.current_data = create_balanced_sample(self.dataset, target_fraction=self.target_fraction)
+        print("Data resampled for next epoch")
 
     def __len__(self):
         return len(self.current_data)
@@ -59,27 +84,27 @@ class ResamplingDataset(Dataset):
 
             def on_epoch_begin(self, args, state, control, **kwargs):
                 self.dataset.resample()
-                print("Data resampled for next epoch")
 
         return ResamplingCallback(self)
 
 
 training_args = TrainingArguments(
     output_dir="./results/roberta/",
+    # eval_strategy="no",
+    # save_strategy="no",
     eval_strategy="epoch",
+    save_strategy="epoch",
     # eval_strategy="steps",
     # eval_steps=32,
     report_to="none",
     logging_strategy="no",
-    # save_strategy="no",
-    save_strategy="epoch",
     load_best_model_at_end=True,
     save_total_limit=1,
-    learning_rate=1e-6,
+    learning_rate=2e-4,
     # weight_decay=0.01,
     max_grad_norm=0.5,
-    num_train_epochs=5,
-    warmup_steps=132,
+    num_train_epochs=4,
+    warmup_steps=32,
     # gradient_accumulation_steps=2,
     per_device_train_batch_size=64,
     per_device_eval_batch_size=64,
@@ -87,10 +112,18 @@ training_args = TrainingArguments(
     bf16_full_eval=torch_dtype == torch.bfloat16,
     dataloader_num_workers=8,  # Adjust based on your CPU cores
     dataloader_pin_memory=True,
-    optim="sgd",
+    # optim="sgd",
+
+    # optim="adamw_torch",  # Use efficient optimizer
+    torch_compile=True,  # Enable torch.compile for PyTorch 2.0+ (significant speedup)
+    gradient_checkpointing=False,  # Disable since we want max speed & have enough memory
 )
 
-dataset_train = ResamplingDataset(ner_dataset.dataset["train"])
+dataset_train = ResamplingDataset(
+    ner_dataset.dataset["train"],
+    # target_fraction=0.8,
+    target_fraction=None,
+)
 
 # Initialize Trainer
 trainer = Trainer(
@@ -101,10 +134,8 @@ trainer = Trainer(
     tokenizer=ner_dataset.tokenizer,
     data_collator=ner_dataset.data_collator,
     compute_metrics=ner_dataset.compute_metrics,
-    callbacks=[RoundMetricsCallback(decimal_places=2)],
+    callbacks=[RoundMetricsCallback(decimal_places=2), dataset_train.callback()],
 )
-# Add the resampling callback
-trainer.add_callback(dataset_train.callback())
 
 trainer.train()
 
