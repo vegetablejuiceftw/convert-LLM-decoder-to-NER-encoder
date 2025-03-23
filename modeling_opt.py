@@ -577,6 +577,8 @@ class OPTDecoder(OPTPreTrainedModel):
 
     def __init__(self, config: OPTConfig):
         super().__init__(config)
+        self.is_decoder = config.is_decoder
+        print("self.is_decoder", self.is_decoder)
         self.dropout = config.dropout
         self.layerdrop = config.layerdrop
         self.padding_idx = config.pad_token_id
@@ -708,7 +710,10 @@ class OPTDecoder(OPTPreTrainedModel):
         # embed positions
         if self._use_flash_attention_2:
             # 2d mask is passed through the layers
-            causal_attention_mask = attention_mask if (attention_mask is not None and 0 in attention_mask) else None
+            # causal_attention_mask = attention_mask if (attention_mask is not None and 0 in attention_mask) else None
+            causal_attention_mask = None
+            if self.is_decoder:
+                causal_attention_mask = attention_mask
             attention_mask = (
                 torch.ones(batch_size, mask_seq_length, device=inputs_embeds.device)
                 if attention_mask is None

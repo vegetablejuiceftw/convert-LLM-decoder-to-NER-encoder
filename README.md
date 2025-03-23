@@ -5,6 +5,7 @@
 aider --read CONVENTIONS.md
 ```
 
+ # causes learning effectiveness to drop?
 
 ```python
 model = AutoModelForTokenClassification.from_pretrained(

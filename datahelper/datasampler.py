@@ -5,6 +5,9 @@ from collections import Counter
 from typing import Dict, List, Set, Counter as CounterType
 from dataclasses import dataclass
 
+from torch.utils.data import Dataset as TorchDataset
+from transformers import TrainerCallback
+
 
 @dataclass
 class NERDataset:
@@ -120,8 +123,8 @@ def create_balanced_sample(dataset: Dataset,
     # Calculate ideal count per entity type
     ideal_count_per_type = total_candidates // total_entity_types
     print(entity_type_counts, ideal_count_per_type)
-    rare_entities = {et for et, c in entity_type_counts.items() if c < ideal_count_per_type}
-    print([id2label.get(et, et) for et in rare_entities])
+    # rare_entities = {et for et, c in entity_type_counts.items() if c < ideal_count_per_type}
+    # print([id2label.get(et, et) for et in rare_entities])
 
     def loss_fn(vs):
         avg = sum(vs) / len(vs)
@@ -156,16 +159,48 @@ def create_balanced_sample(dataset: Dataset,
         print(id2label.get(et, et), c)
 
     # Add examples with no entities
-    if no_entity_examples:
-        print(f"Added {len(no_entity_examples)} examples with no entities")
+    # if no_entity_examples:
+    #     print(f"Added {len(no_entity_examples)} examples with no entities")
 
     sampled_indices = list(candidate_indices) + no_entity_examples
 
     # Print sampling statistics
-    print(f"\nSampled {len(sampled_indices)} examples from {len(dataset)} total examples")
+    print(f"Sampled {len(sampled_indices)} examples from {len(dataset)} total examples")
 
     # Return the sampled indices
     return dataset.select(sampled_indices)
+
+
+class ResamplingDataset(TorchDataset):
+    def __init__(self, dataset, target_fraction: float | None =0.8):
+        self.dataset = dataset
+        self.target_fraction = target_fraction
+        self.current_data = None
+        self.resample()
+
+    def resample(self):
+        if self.target_fraction is None:
+            self.current_data = self.dataset
+            return
+        self.current_data = create_balanced_sample(self.dataset, target_fraction=self.target_fraction)
+        print("Data resampled for next epoch")
+
+    def __len__(self):
+        return len(self.current_data)
+
+    def __getitem__(self, idx):
+        return self.current_data[idx]
+
+    def callback(self):
+        # Define a custom callback to resample data after each epoch
+        class ResamplingCallback(TrainerCallback):
+            def __init__(self, dataset):
+                self.dataset = dataset
+
+            def on_epoch_begin(self, args, state, control, **kwargs):
+                self.dataset.resample()
+
+        return ResamplingCallback(self)
 
 
 if __name__ == '__main__':
